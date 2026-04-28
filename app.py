@@ -163,6 +163,7 @@ class HexManagerApp(app.App):         # pylint: disable=no-member
                                  HexpansionType(0xCAFF, "Club Mate",               eeprom_total_size= 8192, eeprom_page_size= 32, app_mpy_name="caffeine.mpy", app_name="CaffeineJitter")]
 
         self.hexpansion_update_required: bool = False # flag from async to main loop
+        self.serialise_active = False
 
         # Functional area managers
         self._hexpansion_mgr   = HexpansionMgr(self, logging=self.logging)  if HexpansionMgr is not None else None
@@ -289,7 +290,7 @@ class HexManagerApp(app.App):         # pylint: disable=no-member
         self.refresh = True
 
         # Update Hexpansion management if something 'hexpansion' related has changed
-        if self.hexpansion_update_required:
+        if self.hexpansion_update_required and not self.serialise_active:
             if self.current_state != STATE_HEXPANSION and self._hexpansion_mgr is not None:
                 # Trigger an update cycle for hexpansion_mgr even though it is not currently active
                 self._hexpansion_mgr.update(delta)
@@ -355,6 +356,9 @@ class HexManagerApp(app.App):         # pylint: disable=no-member
                 self.button_states.clear()
                 # Reboot has been acknowledged by the user - unfortunately we can't actually reboot the badge from Python.
                 return # leave the message on screen.
+            elif self.message_type == "serialise":
+                self.button_states.clear()
+                self.current_state = STATE_SERIALISE
             elif self.message_type == "error" or self.message_type == "warning" or self.message_type == "hexpansion":
                 # Message has been acknowledged by the user
                 self.button_states.clear()
@@ -427,7 +431,7 @@ class HexManagerApp(app.App):         # pylint: disable=no-member
                 if self.message_colours == []:
                     self.message_colours = [(1,0,0)]*len(self.message)
                 self.draw_message(ctx, self.message, self.message_colours, label_font_size)
-                if self.message_type is None or self.message_type == "warning" or self.message_type == "hexpansion":
+                if self.message_type is None or self.message_type == "warning" or self.message_type == "hexpansion" or self.message_type == "serialise":
                     button_labels(ctx, confirm_label="OK", cancel_label="Exit")
             else:
                 # Delegate to functional area managers via dispatch table

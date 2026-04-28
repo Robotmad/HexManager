@@ -165,11 +165,86 @@ class HexpansionMgr:
         self._logging = value
 
 
+    def probe_eeprom(self, port: int) -> tuple[str, HexpansionHeader | None]:
+        """Probe a port and report whether its EEPROM is blank, missing, or already written."""
+        try:
+            header = self._read_header(port)
+        except OSError:
+            return "missing", None
+        except RuntimeError:
+            return "blank", None
+        except Exception as e:      # pylint: disable=broad-except
+            print(f"H:Error probing EEPROM on port {port}: {e}")
+            return "error", None
+        if header is None:
+            return "error", None
+        return "written", header
+
+
+    def erase_eeprom_for_type(self, port: int, type_index: int) -> bool:
+        """Erase the EEPROM on a port using the geometry for the selected hexpansion type."""
+        if type_index < 0 or type_index >= len(self._app.HEXPANSION_TYPES):
+            return False
+        if self._hexpansion_eeprom_addr_len[port - 1] is None or self._hexpansion_eeprom_addr[port - 1] is None:
+            try:
+                self._read_header(port)
+            except (OSError, RuntimeError):
+                pass
+            except Exception as e:      # pylint: disable=broad-except
+                print(f"H:Error refreshing EEPROM address on port {port}: {e}")
+                return False
+        erase_addr_len = self._hexpansion_eeprom_addr_len[port - 1]
+        erase_addr = self._hexpansion_eeprom_addr[port - 1]
+        if erase_addr_len is None or erase_addr is None:
+            return False
+        hexpansion_type = self._app.HEXPANSION_TYPES[type_index]
+        return self._erase_eeprom(port,
+                                  erase_addr,
+                                  erase_addr_len,
+                                  hexpansion_type.eeprom_total_size,
+                                  hexpansion_type.eeprom_page_size)
+
+
+    def prepare_eeprom_for_type(self, port: int, type_index: int, unique_id: int | None) -> bool:
+        """Write header and filesystem for a specific hexpansion type and unique ID."""
+        return self._prepare_eeprom(port, type_index=type_index, unique_id=unique_id)
+
+
+    def program_app_for_type(self, port: int, type_index: int) -> int:
+        """Write the configured app for a specific hexpansion type to EEPROM."""
+        return self._update_app_in_eeprom(port, type_index=type_index)
+
+
+    def refresh_slot_records(self):
+        """Rebuild cached slot bookkeeping from the current hardware state."""
+        self._ports_to_initialise.clear()
+        self._ports_to_check_app.clear()
+        self._detected_port = None
+        self._waiting_app_port = None
+        self._erase_port = None
+        self._upgrade_port = None
+        self._hexpansion_app_startup_timer = 0
+        self._hexpansion_type_by_slot = [None] * _NUM_HEXPANSION_SLOTS
+        self._hexpansion_state_by_slot = [_HEXPANSION_STATE_UNKNOWN] * _NUM_HEXPANSION_SLOTS
+        self._hexpansion_eeprom_addr_len = [None] * _NUM_HEXPANSION_SLOTS
+        self._hexpansion_eeprom_addr = [None] * _NUM_HEXPANSION_SLOTS
+        self._port_selected_header = None
+        self._hexpansion_serial_number = None
+
+        for port in range(1, _NUM_HEXPANSION_SLOTS + 1):
+            self._check_port_for_known_hexpansions(port)
+
+        if 1 <= self._port_selected <= _NUM_HEXPANSION_SLOTS:
+            self._read_port_header(self._port_selected)
+
+
     # ------------------------------------------------------------------
     # Async event handlers (registered directly on eventbus)
     # ------------------------------------------------------------------
 
     async def _handle_removal(self, event):
+        if self._app.serialise_active:
+            return
         app = self._app
         self._hexpansion_type_by_slot[event.port - 1] = None
         self._hexpansion_state_by_slot[event.port - 1] = _HEXPANSION_STATE_EMPTY
@@ -189,6 +264,8 @@ class HexpansionMgr:
 
 
     async def _handle_insertion(self, event):
+        if self._app.serialise_active:
+            return
         if self._check_port_for_known_hexpansions(event.port) or event.port == self._port_selected:
             # A known hexpansion type has been detected on the inserted port, so trigger an update of
             # the hexpansion management state machine to handle it. Or the inserted port is the one
@@ -879,7 +956,7 @@ class HexpansionMgr:
     # EEPROM operations
     # ------------------------------------------------------------------
 
-    def _update_app_in_eeprom(self, port) -> int:
+    def _update_app_in_eeprom(self, port, type_index: int | None = None) -> int:
         """Copy the appropriate .mpy file to the hexpansion EEPROM on the given port.
 
         Returns one of:
@@ -889,11 +966,12 @@ class HexpansionMgr:
           - _APP_EEPROM_RESULT_SUCCESSFUL_WRITE
         """
         app = self._app
-        if app.HEXPANSION_TYPES[self._hexpansion_init_type].app_mpy_name is None:
+        selected_type = self._hexpansion_init_type if type_index is None else type_index
+        if app.HEXPANSION_TYPES[selected_type].app_mpy_name is None:
             if self._logging:
-                print(f"H:Hexpansion type {app.HEXPANSION_TYPES[self._hexpansion_init_type].name} does not have an app to copy to EEPROM")
+                print(f"H:Hexpansion type {app.HEXPANSION_TYPES[selected_type].name} does not have an app to copy to EEPROM")
             return _APP_EEPROM_RESULT_FAILURE
-        source_file = f"EEPROM/{app.HEXPANSION_TYPES[self._hexpansion_init_type].app_mpy_name}"
+        source_file = f"EEPROM/{app.HEXPANSION_TYPES[selected_type].app_mpy_name}"
         if self._logging:
             print(f"H:Writing app.mpy on port {port} with {source_file}")
         try:
@@ -987,7 +1065,7 @@ class HexpansionMgr:
                 print(f"H:Error unmounting {mountpoint}: {e}")
                 return _APP_EEPROM_RESULT_FAILURE
         if self._logging:
-            print(f"H:Hexpansion app.mpy written with version {self._app.HEXPANSION_TYPES[self._hexpansion_init_type].app_mpy_version}")
+            print(f"H:Hexpansion app.mpy written with version {self._app.HEXPANSION_TYPES[selected_type].app_mpy_version}")
         if had_existing_app:
             return _APP_EEPROM_RESULT_SUCCESSFUL_UPGRADE
         return _APP_EEPROM_RESULT_SUCCESSFUL_WRITE
@@ -995,20 +1073,22 @@ class HexpansionMgr:
 
     # ------------------------------------------------------------------
 
-    def _prepare_eeprom(self, port) -> bool:
+    def _prepare_eeprom(self, port, type_index: int | None = None, unique_id: int | None = None) -> bool:
         """Write the EEPROM header and format the filesystem on the hexpansion EEPROM on the given port, based on the selected hexpansion type.  Returns True if successful, False otherwise."""
         app = self._app
+        selected_type = self._hexpansion_init_type if type_index is None else type_index
+        serial_number = self._hexpansion_serial_number if unique_id is None else unique_id
         if self._logging:
-            print(f"H:Initialising EEPROM on port {port} as {self._hexpansion_init_type}:{app.HEXPANSION_TYPES[self._hexpansion_init_type].name}...")
+            print(f"H:Initialising EEPROM on port {port} as {selected_type}:{app.HEXPANSION_TYPES[selected_type].name}...")
         hexpansion_header_to_write = HexpansionHeader(
             manifest_version="2024",
-            fs_offset=max(32, app.HEXPANSION_TYPES[self._hexpansion_init_type].eeprom_page_size),
-            eeprom_page_size=app.HEXPANSION_TYPES[self._hexpansion_init_type].eeprom_page_size,
-            eeprom_total_size=app.HEXPANSION_TYPES[self._hexpansion_init_type].eeprom_total_size,
-            vid=app.HEXPANSION_TYPES[self._hexpansion_init_type].vid,
-            pid=app.HEXPANSION_TYPES[self._hexpansion_init_type].pid,
-            unique_id=self._hexpansion_serial_number if self._hexpansion_serial_number is not None else 0,
-            friendly_name=app.HEXPANSION_TYPES[self._hexpansion_init_type].name,
+            fs_offset=max(32, app.HEXPANSION_TYPES[selected_type].eeprom_page_size),
+            eeprom_page_size=app.HEXPANSION_TYPES[selected_type].eeprom_page_size,
+            eeprom_total_size=app.HEXPANSION_TYPES[selected_type].eeprom_total_size,
+            vid=app.HEXPANSION_TYPES[selected_type].vid,
+            pid=app.HEXPANSION_TYPES[selected_type].pid,
+            unique_id=serial_number if serial_number is not None else 0,
+            friendly_name=app.HEXPANSION_TYPES[selected_type].name,
         )
         try:
             i2c = I2C(port)
