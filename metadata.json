@@ -1,6 +1,6 @@
 {
-    "callable": "BadgeBotApp",
-    "name": "BadgeBot",
+    "callable": "HexManagerApp",
+    "name": "HexManager",
     "category": "unknown",
     "hidden": false
 }

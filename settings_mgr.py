@@ -1,11 +1,11 @@
-# Settings Module for BadgeBot
+# Settings Module for HexManager
 #
 # Contains the MySetting class for managing individual settings with
 # min/max bounds, persistence, and increment/decrement by level.
 # Also contains the settings editing UI state handler
 #
 # Public interface (called by the main app):
-#   __init__(app)   – wire up to BadgeBotApp
+#   __init__(app)   – wire up to HexManagerApp
 #   update(delta)   – per-tick state machine update
 #   draw(ctx)       – render settings editing UI
 
@@ -34,7 +34,7 @@ class MySetting:
                 return k
         return None
 
-    def label(self, index: int = None):
+    def label(self, index: int | None = None):
         if index is not None:
             if self._labels is not None and index < len(self._labels):
                 return self._labels[int(index)]
@@ -103,9 +103,9 @@ class MySetting:
         """Persist the setting value to platform storage.  If the value is equal to the default, the setting will be removed from storage to save space."""
         try:
             if self.v != self.d:
-                platform_settings.set(f"badgebot.{self._index()}", self.v)
+                platform_settings.set(f"hexmanager.{self._index()}", self.v)
             else:
-                platform_settings.set(f"badgebot.{self._index()}", None)
+                platform_settings.set(f"hexmanager.{self._index()}", None)
         except Exception as e:          # pylint: disable=broad-except
             print(f"H:Failed to persist setting {self._index()}: {e}")
 
@@ -115,14 +115,14 @@ class SettingsMgr:
 
     Parameters
     ----------
-    app : BadgeBotApp
+    app : HexManagerApp
         Reference to the main application instance.
     """
 
     def __init__(self, app, logging: bool = False):
         self._app = app
         self._logging: bool = logging
-        self.edit_setting: int  = None
+        self.edit_setting: int | float | str | None  = None
         self.edit_setting_value = None
         if self._logging:
             print("SettingsMgr initialised")
@@ -185,7 +185,6 @@ class SettingsMgr:
                 app.button_states.clear()
                 if self._logging:
                     print(f"Setting: {self.edit_setting} Cancelled")
-                app.fast_settings_update()  # Update fast access settings which might have been changed
                 app.return_to_menu(MENU_ENTRY_NAME)
             elif app.button_states.get(BUTTON_TYPES["CONFIRM"]):
                 app.button_states.clear()

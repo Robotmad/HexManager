@@ -49,55 +49,20 @@ If you have issues with any hexpansion fitted with an EEPROM, e.g. a software in
 ```
 
 
-
-### Construction guide & useful documents
-
-https://github.com/TeamRobotmad/BadgeBotParts/tree/main/Docs
-
-
-## Developers guide
-
-Writing your own code to control the motor driver is very easy.  The BadgeBot application contains lots of extra code to support initialising and upgrading the software on the HexDrive, but once this is done you can use the board without needing this code.
-
-To fit the HexDrive software into a small EEPROM it is converted into a .mpy file.  The file hexdrive.py is the source of this code if you want to see what it is doing.  The intention is that this code manages the hardware as it knows which slot the hexpansion is in.
-
-### Power
-The HexDrive incorporates a Switch Mode Power Supply which boosts the 3.3V provided by the badge up to 5V (or higher if your hexpansion has been modified) to drive the motors.  To turn this on or off call
-```set_power(True | False)```
-
-### Drive
-Call ```set_motors()``` to control the two motors, providing a signed integer from -65535 to +65535 for each in a tuple.
-
-Alternatively:
-Call ```set_pwm()``` to set the duty cycle of the 4 PWM channels which control the motors. This function takes a tuple of 4 integers, each from 0 to 65535. e.g.
-```set_pwm((0,1000,1000,0))```
-note the extra set of brackets as the function argument is a single tuple of 4 values rather than being 4 individual values.
-
-### Servos
-You can control 1,2,3 or 4 RC hobby servos (centre pulse width 1500us).  The first time you set a pulse width for a channel using ```set_servoposition()``` the PWM frequency for that channel will be set to 50Hz.
-The first two Channels take up signals that would otherwise control Motor 1 and the second two Channels take up the signals that are used for Motor 2.
-You can use one motor and 1 or 2 servos simultaneously.
-
-### Frequency
-You can adjust the PWM frequency, default 20000Hz for motors and 50Hz for servos by calling the ```set_freq()``` function.
-
-#### Keep Alive
-To protect against most badge/software crashes causing the motors or servos to run out of control there is a keep alive mechanism which means that if you do not make a call to the ```set_pwm```, ```set_motors``` or ```set_servoposition``` functions the motors/servos will be turned off after 1000mS (default - which can be changed with a call to ```set_keep_alive()```).
-
 ### Developers setup
-This is to help develop the BadgeBot application using the Badge simulator.
+This is to help develop the HexManager application using the Badge simulator.
 
 Windows:
 ```
-git clone https://github.com/TeamRobotmad/BadgeBot.git
-cd BadgeBot
+git clone https://github.com/TeamRobotmad/HexManager.git
+cd HexManager
 powershell -ExecutionPolicy Bypass -File .\dev\setup_dev_env.ps1
 ```
 
 WSL (recommended for simulator tests):
 ```
-git clone https://github.com/TeamRobotmad/BadgeBot.git
-cd BadgeBot
+git clone https://github.com/TeamRobotmad/HexManager.git
+cd HexManager
 sh ./dev/setup_wsl_dev_env.sh
 ```
 
@@ -105,8 +70,8 @@ The WSL helper uses `uv` to provision Python 3.10 and installs both the local de
 
 Linux/macOS:
 ```
-git clone https://github.com/TeamRobotmad/BadgeBot.git
-cd BadgeBot
+git clone https://github.com/TeamRobotmad/HexManager.git
+cd HexManager
 sh ./dev/setup_dev_env.sh
 ```
 
@@ -126,7 +91,7 @@ cd tests
 python -m pytest test_smoke.py test_autotune.py -v
 ```
 
-If BadgeBot is checked out inside the `badge-2024-software` repo, set `PYTHONPATH` to the parent repo root so `sim.run` can be imported. For the WSL helper's default environment this looks like:
+If HexManager is checked out inside the `badge-2024-software` repo, set `PYTHONPATH` to the parent repo root so `sim.run` can be imported. For the WSL helper's default environment this looks like:
 ```
 cd tests
 PYTHONPATH=/path/to/badge-2024-software ../.venv-wsl310/bin/python -m pytest test_smoke.py test_autotune.py -v
@@ -134,33 +99,6 @@ PYTHONPATH=/path/to/badge-2024-software ../.venv-wsl310/bin/python -m pytest tes
 
 ### Best practise
 Run `isort` on in-app python files. Check `pylint` for linting errors.
-
-### Regenerating QR Code
-QR generation is a development-time task and is intentionally kept out of normal
-runtime loading for the app.
-
-Generate QR output only (prints `_QR_CODE = [...]`):
-```
-python dev/generate_qr_code.py --url https://robotmad.odoo.com
-```
-
-Generate and write directly back into `app.py`:
-```
-python dev/generate_qr_code.py --url https://robotmad.odoo.com --write-app
-```
-
-Optional: integrate into release prep:
-```
-python dev/build_release.py --refresh-qr --qr-url=https://robotmad.odoo.com
-```
-
-Validate `_QR_CODE` is in sync without modifying files:
-```
-python dev/check_qr_sync.py --url https://robotmad.odoo.com
-```
-
-`build_release.py` now checks QR sync by default before packaging.
-Use `--no-check-qr` to skip this check if needed.
 
 
 ### Contribution guidelines

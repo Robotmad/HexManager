@@ -1,4 +1,4 @@
-""" Main Application File for BadgeBot."""
+""" Main Application File for HexManager."""
 import asyncio
 import sys
 import time
@@ -21,112 +21,43 @@ from tildagonos import tildagonos
 from machine import Pin
 import app
 
-# If you could use hard=True in setting up a Pin IRQ hander, which you can't as of BadgeOS V1.10, then it is recommended to
-# allocate the emergency exception buffer to prevent crashes due to OSError: Out of memory when an interrupt occurs and
-# there is no memory available to handle the exception.
-#import micropython
-#micropython.alloc_emergency_exception_buf(100)
-
-from .utils import draw_logo_animated, parse_version
 from .EEPROM.hexdrive import VERSION as HEXDRIVE_APP_VERSION
 
 
-_SETTINGS_NAME_PREFIX = "badgebot."  # Prefix for settings keys in EEPROM
-APP_VERSION = "1.5" # BadgeBot App Version Number
-
-_DIAG_PORT = None  # Hexpansion port to use for diagnostic timing measurements
-
-# If you change the URL then you will need to regenerate the QR code
-# using the generate_qr_code.py script, and update the _QR_CODE constant below with the new code generated for your URL
-_QR_CODE = [
-            0x1fcf67f,
-            0x104cc41,
-            0x174975d,
-            0x1744e5d,
-            0x175d45d,
-            0x104ea41,
-            0x1fd557f,
-            0x001af00,
-            0x04735f7,
-            0x1070c97,
-            0x1c23ae9,
-            0x08ce9bd,
-            0x1af3160,
-            0x1270a80,
-            0x1cc3549,
-            0x097ef36,
-            0x03ff5e9,
-            0x1b18300,
-            0x1b5a37f,
-            0x0313b41,
-            0x03f3d5d,
-            0x078b65d,
-            0x111e35d,
-            0x0b57141,
-            0x18bbd7f,
-]
-
-_BRIGHTNESS = 1.0
+_SETTINGS_NAME_PREFIX = "hexmanager."  # Prefix for settings keys in EEPROM
+APP_VERSION = "0.1" # HexManager App Version Number
 
 # Screen positioning constant for scroll mode display
 H_START = -63
 
 # Timings
-MOTOR_PWM_FREQ = 20000      # 20kHz is a good default for motors as it is above the audible range for most people and works with most motors and ESC
-_LONG_PRESS_MS = 750        # Time for long button press to register, in ms
-_RUN_COUNTDOWN_MS = 5000    # Time after running program until drive starts, in ms
 _AUTO_REPEAT_MS = 200       # Time between auto-repeats, in ms
 _AUTO_REPEAT_COUNT_THRES = 10 # Number of auto-repeats before increasing level
 _AUTO_REPEAT_SPEED_LEVEL_MAX = 4  # Maximum level of auto-repeat speed increases
 _AUTO_REPEAT_LEVEL_MAX = 3  # Maximum level of auto-repeat digit increases
-DEFAULT_BACKGROUND_UPDATE_PERIOD = 100    # mS when not moving
 
 # App states
 STATE_MENU = 0
 STATE_MESSAGE = 1         # Message display
-STATE_LOGO =  2           # Logo display
-STATE_COUNTDOWN = 3       # Shared countdown (Motor Moves & PID AutoTune)
-STATE_SETTINGS = 4        # Edit Settings
-STATE_MOTOR_MOVES = 5     # Motor Moves (sub-states managed by MotorMovesMgr)
-STATE_SERVO = 6           # Servo test
-STATE_FOLLOWER = 7        # Line Follower
-STATE_AUTOTUNE = 8        # PID Auto Tune
-STATE_SENSOR = 9          # Sensor Test
-STATE_AUTODRIVE = 10      # Autonomous Drive
-STATE_HEXPANSION = 11     # Hexpansion Management (sub-states managed by HexpansionMgr)
+STATE_SETTINGS = 2        # Edit Settings
+STATE_HEXPANSION = 3      # Hexpansion Management (sub-states managed by HexpansionMgr)
+STATE_SERIALISE = 4       # Serialise Hexpansion Initialisation (sub-states managed by SerialiseMgr)
 
-# App states where user can minimise app (Menu, Message, Logo)
-MINIMISE_VALID_STATES = [STATE_MENU, STATE_MESSAGE, STATE_LOGO]
-
-# App states where BadgeBot directly controls the badge LEDs (Motor Moves, Countdown, Message, Logo, Line Follower, AutoTune)
-_LED_CONTROL_STATES    = [STATE_MOTOR_MOVES, STATE_COUNTDOWN, STATE_MESSAGE, STATE_LOGO, STATE_FOLLOWER, STATE_AUTOTUNE, STATE_AUTODRIVE, STATE_SENSOR]
+# App states where user can minimise app (Menu, Message)
+MINIMISE_VALID_STATES = [STATE_MENU, STATE_MESSAGE]
 
 #Misceallaneous Settings
 _LOGGING = False
 _IS_SIMULATOR = sys.platform != "esp32"  # True when running in the simulator, not on real badge hardware
-_FWD_DIR_DEFAULT = 0
-_FRONT_FACE_DEFAULT = 0
 
 
 # Main Menu Items
-MAIN_MENU_ITEMS = ["Line Follower","Motor Moves", "Servo Test", "PID Auto Tune", "Sensor Test", "Auto Drive", "Hexpansions", "Settings", "About","Exit"]
-MENU_ITEM_LINE_FOLLOWER = 0
-MENU_ITEM_MOTOR_MOVES = 1
-MENU_ITEM_SERVO_TEST = 2
-MENU_ITEM_PID_AUTOTUNE = 3
-MENU_ITEM_SENSOR_TEST = 4
-MENU_ITEM_AUTO_DRIVE = 5
-MENU_ITEM_HEXPANSION = 6
-MENU_ITEM_SETTINGS = 7
-MENU_ITEM_ABOUT = 8
-MENU_ITEM_EXIT = 9
-
-# Front face direction labels (0=BtnA corner between slots 6 & 1, each step = 30° CW)
-_FRONT_FACE_LABELS = (
-    "BtnA", "Slot 1", "BtnB", "Slot 2", "BtnC", "Slot 3",
-    "BtnD", "Slot 4", "BtnE", "Slot 5", "BtnF", "Slot 6",
-)
-_MOTOR_DIRECTION_LABELS = ("Normal", "Reverse")
+MAIN_MENU_ITEMS = ["Hexpansions", "Serialise", "Settings", "About","Exit"]
+MENU_ITEM_HEXPANSION = 0
+MENU_ITEM_SERIALISE = 1
+MENU_ITEM_SETTINGS = 2
+MENU_ITEM_ABOUT = 3
+MENU_ITEM_EXIT = 4
 
 # Import sub-modules after constants are defined so they can safely
 # `from .app import STATE_*` without circular-import timing issues.
@@ -151,17 +82,12 @@ def _try_import(module_name, *attr_names):
     return nones
 
 HexpansionMgr, HexpansionType, _hexpansion_init_settings = _try_import('hexpansion_mgr', 'HexpansionMgr', 'HexpansionType', 'init_settings')
-SettingsMgr, MySetting                                    = _try_import('settings_mgr',   'SettingsMgr', 'MySetting')
-MotorMovesMgr, _motor_moves_init_settings                 = _try_import('motor_moves',    'MotorMovesMgr', 'init_settings')
-ServoTestMgr, _servo_test_init_settings                   = _try_import('servo_test',     'ServoTestMgr', 'init_settings')
-LineFollowMgr, _line_follow_init_settings                 = _try_import('line_follow',    'LineFollowMgr', 'init_settings')
-(AutotuneMgr,)                                            = _try_import('autotune_mgr',   'AutotuneMgr')
-SensorTestMgr, _sensor_test_init_settings                 = _try_import('sensor_test',    'SensorTestMgr', 'init_settings')
-AutoDriveMgr, _autodrive_init_settings                    = _try_import('autodrive',      'AutoDriveMgr', 'init_settings')
+SerialiseMgr,                  _serialise_init_settings  = _try_import('serialise_mgr',  'SerialiseMgr',                    'init_settings')
+SettingsMgr, MySetting                                   = _try_import('settings_mgr',   'SettingsMgr', 'MySetting')
 
 
-class BadgeBotApp(app.App):         # pylint: disable=no-member
-    """Main application class for BadgeBot.  Manages overall state, user input, and delegates to functional area managers for specific features."""
+class HexManagerApp(app.App):         # pylint: disable=no-member
+    """Main application class for HexManager.  Manages overall state, user input, and delegates to functional area managers for specific features."""
     def __init__(self):
         super().__init__()
 
@@ -175,14 +101,7 @@ class BadgeBotApp(app.App):         # pylint: disable=no-member
 
         # UI Feature Controls
         self.refresh: bool = True            # True so that we draw initial screen on first loop, then set to True whenever we want to trigger a screen update
-        self.rpm: int = 5                    # logo rotation speed in RPM
-        self.animation_counter: int = 0
-        self.pattern_status: bool = True     # True = Pattern Enabled, False = Pattern Disabled
-        self.qr_code = _QR_CODE
         self.app_version: str = APP_VERSION
-        # strings shown on the Logo screen
-        self.b_msg: str = f"BadgeBot V{self.app_version}"
-        self.t_msg: str = "RobotMad"
         self.notification: Notification | None = None
         self.message: list = []
         self.message_colours: list = []
@@ -194,30 +113,19 @@ class BadgeBotApp(app.App):         # pylint: disable=no-member
         self.is_scroll: bool = False        # Whether we are in scroll mode - this is displayed by a green border around the screen
         self.scroll_offset: int = 0
 
-        # UI countdown
-        self.run_countdown_elapsed_ms: int = 0
-        self.countdown_next_state: int | None = None  # which state to go to after countdown
-
-        self._motor1_reversed: bool = False       # 0 or 1 to control direction of motor 1, set based on settings
-        self._motor2_reversed: bool = False       # 0 or 1 to control direction of motor 2, set based on settings
-
-        # Settings - common settings first, then each module registers its own later
+         # Settings - common settings first, then each module registers its own later
         self.settings: dict = {}
         if MySetting is not None:
             # General settings
-            self.settings['brightness']    = MySetting(self.settings, _BRIGHTNESS, 0.1, 1.0)
             self.settings['logging']       = MySetting(self.settings, _LOGGING, False, True)
-            # Direction settings
-            self.settings['motor1_dir']    = MySetting(self.settings, _FWD_DIR_DEFAULT, 0, 1, labels=_MOTOR_DIRECTION_LABELS)
-            self.settings['motor2_dir']    = MySetting(self.settings, _FWD_DIR_DEFAULT, 0, 1, labels=_MOTOR_DIRECTION_LABELS)
-            self.settings['front_face']    = MySetting(self.settings, _FRONT_FACE_DEFAULT, 0, 11, labels=_FRONT_FACE_LABELS)
 
-            # Module-specific settings - only initialise modules which are NOT dependent on specific Hexpansion hardware here, as we want to be able to access settings in the HexpansionMgr before we have detected what hardware is present.  For Hexpansion-dependent modules, we will initialise their settings after we have scanned for hardware and know which modules we will be using.
+            # Module-specific settings:
             if _hexpansion_init_settings is not None:
                 _hexpansion_init_settings(self.settings, MySetting)
+            if _serialise_init_settings is not None:
+                _serialise_init_settings(self.settings, MySetting)
 
             self.update_settings()
-            self.fast_settings_update()
 
         # Check what version of the Badge s/w we are running on
         ver: list[int | str] | None = None
@@ -233,7 +141,7 @@ class BadgeBotApp(app.App):         # pylint: disable=no-member
 
         # make use of special characters if running on compatible badge s/w version
         version_triplet = tuple(part if isinstance(part, int) else 0 for part in (ver[:3] if ver is not None else []))
-        if len(version_triplet) == 3 and version_triplet > (1, 10, 0):
+        if len(version_triplet) == 3 and version_triplet > (2, 0, 0):
             self.special_chars = { 'up': "\u25B2",        # up arrow
                                 # 'down': "\u25BC",     # down arrow - has always existed
                                   'left': "\u25C0",     # left arrow
@@ -242,7 +150,7 @@ class BadgeBotApp(app.App):         # pylint: disable=no-member
             self.special_chars = {'up': "^", 'left': "<", 'right': ">"}
 
 
-        # Hexpansion related - SEE ALSO hexpansion_mgr to update _SINGLE_PORT_HEXPANSION_REFS
+        # If vid is not specified then default is the UHB-IF uncontrolled VID 0xCAFE
         #                                       pid      name         vid          eeprom total size        eeprom page size      app mpy name                 app mpy version                       app name                motors    servos    sensors    sub_type
         assert HexpansionType is not None
         self.HEXPANSION_TYPES = [HexpansionType(0xCBCB, "HexDrive",                                                               app_mpy_name="hexdrive.mpy", app_mpy_version=HEXDRIVE_APP_VERSION, app_name="HexDriveApp", motors=2, servos=4, sub_type="Uncommitted" ),
@@ -255,89 +163,33 @@ class BadgeBotApp(app.App):         # pylint: disable=no-member
                                  HexpansionType(0x0202, "HexDriveV2",  vid=0xCBCB, eeprom_total_size=32768, eeprom_page_size= 64, app_mpy_name="hexdrive.mpy", app_mpy_version=HEXDRIVE_APP_VERSION, app_name="HexDriveApp",           servos=2, sub_type="2 Servo" ),
                                  HexpansionType(0x0300, "HexTest",     vid=0xCBCB, eeprom_total_size=65536, eeprom_page_size=128),
                                  HexpansionType(0x0400, "HexDiag",     vid=0xCBCB, eeprom_total_size=65536, eeprom_page_size=128),
-                                 #HexpansionType(0x1295, "GPS", app_mpy_name="gps.mpy", app_mpy_version=1, app_name="GPSApp"), # eeprom_total_size= 2048, eeprom_page_size= 16),
-                                 #HexpansionType(0xD15C, "Flopagon",                eeprom_total_size= 2048, eeprom_page_size= 16), # EEPROM too small for the app
-                                 #HexpansionType(0xCAFF, "Club Mate",               eeprom_total_size= 8192, eeprom_page_size= 32, app_mpy_name="caffeine.mpy", app_name="CaffeineJitter"),
+                                 HexpansionType(0x1295, "GPS",                     eeprom_total_size= 2048, eeprom_page_size= 16, app_mpy_name="gps.mpy", app_mpy_version=1, app_name="GPSApp"),
+                                 HexpansionType(0xD15C, "Flopagon",                eeprom_total_size= 2048, eeprom_page_size= 16), # EEPROM too small for the app
+                                 HexpansionType(0xCAFF, "Club Mate",               eeprom_total_size= 8192, eeprom_page_size= 32, app_mpy_name="caffeine.mpy", app_name="CaffeineJitter"),
 
                                  HexpansionType(0x0000, "Unknown",   sub_type=""),       # Virtual type to represent unrecognised hexpansions
                                  HexpansionType(0xFFFF, "Blank",     sub_type="")]       # Virtual type to represent blank EEPROMs
-
-        self.HEXDRIVE_HEXPANSION_INDEX = 0      # Index in the HEXPANSION_TYPES list which corresponds to the basic HexDrive type
-        self.HEXDRIVE_V2_HEXPANSION_INDEX = 5   # Index in the HEXPANSION_TYPES list which corresponds to the basic HexDrive V2 type
-        self.HEXSENSE_HEXPANSION_INDEX = 4      # Index in the HEXPANSION_TYPES list which corresponds to the HexSense type
-        self.HEXTEST_HEXPANSION_INDEX = 8       # Index in the HEXPANSION_TYPES list which corresponds to the HexTest type
-        self.HEXDIAG_HEXPANSION_INDEX = 9       # Index in the HEXPANSION_TYPES list which corresponds to the HexDiag type
-        #self.HEXGPS_HEXPANSION_INDEX = 10      # Index in the HEXPANSION_TYPES list which corresponds to the HexGPS type
 
         self.UNRECOGNISED_HEXPANSION_INDEX = len(self.HEXPANSION_TYPES) - 2 # Index in the HEXPANSION_TYPES list which corresponds to unrecognised hexpansion types MUST BE LAST NON-BLANK ENTRY IN THE LIST
         self.BLANK_HEXPANSION_INDEX = len(self.HEXPANSION_TYPES) - 1        # Index in the HEXPANSION_TYPES list which corresponds to blank EEPROMs
         self.hexpansion_update_required: bool = False # flag from async to main loop
 
-        self.hexdrive_hexpansion_types = [0,1,2,3,5,6,7] # indices in the HEXPANSION_TYPES list which correspond to HexDrive variants - used to check if a detected hexpansion is a HexDrive and to set up the motor and servo counts accordingly
-
-        # HexDrive hexpansion - has an app which we use to control the motors and servos
-        self.hexdrive_ports = []
-        self.hexdrive_apps = []
-
-        # HexSense hexpansion - only a prototype at present
-        self.hexsense_port  = None            # Store the HexpansionConfig of the HexSense that is providing the line sensors
-
-        # HexTest hexpansion - a prototype hexpansion with phototransistors and IR LEDs that we use for testing and diagnostics
-        # including timing measurements for the rotation rate measurement feature in the Sensor Test
-        self.hextest_port = None
-
-        # GPS hexpansion
-        #self.hexgps_port = None
-
-        # Diagnostics hexpansion
-        self.hexdiag_port = _DIAG_PORT
-        self._diag_config = None
-        self.hexdiag_setup()
-
-        # High-level motor controller (created when HexDrive is found)
-        self.motor_controller = None
-
         # Functional area managers
         self._hexpansion_mgr   = HexpansionMgr(self, logging=self.logging)  if HexpansionMgr is not None else None
-        self._motor_moves_mgr  = MotorMovesMgr(self, logging=self.logging)  if MotorMovesMgr is not None else None
-        self._servo_test_mgr   = ServoTestMgr(self, logging=self.logging)   if ServoTestMgr is not None else None
         self._settings_mgr     = SettingsMgr(self, logging=self.logging)    if SettingsMgr is not None else None
-        self._line_follow_mgr  = LineFollowMgr(self, logging=self.logging)  if LineFollowMgr is not None else None
-        self._autotune_mgr     = AutotuneMgr(self, self._line_follow_mgr, logging=self.logging) if AutotuneMgr is not None else None
-        self._sensor_test_mgr  = SensorTestMgr(self, logging=self.logging)  if SensorTestMgr is not None else None
-        self._autodrive_mgr    = AutoDriveMgr(self, logging=self.logging)   if AutoDriveMgr is not None else None
-
+        self._serialise_mgr    = SerialiseMgr(self, logging=self.logging)   if SerialiseMgr is not None else None
+ 
         # State -> manager dispatch tables (only include managers that exist)
         self._state_update_dispatch = {}
         self._state_draw_dispatch = {}
-        self._state_background_dispatch = {}
 
         self._register_state_functions(STATE_HEXPANSION, self._hexpansion_mgr)
-        self._register_state_functions(STATE_MOTOR_MOVES, self._motor_moves_mgr)
-        self._register_state_functions(STATE_FOLLOWER, self._line_follow_mgr)
-        self._register_state_functions(STATE_AUTOTUNE, self._autotune_mgr)
-        self._register_state_functions(STATE_SERVO, self._servo_test_mgr)
+        self._register_state_functions(STATE_SERIALISE, self._serialise_mgr)
         self._register_state_functions(STATE_SETTINGS, self._settings_mgr)
-        self._register_state_functions(STATE_SENSOR, self._sensor_test_mgr)
-        self._register_state_functions(STATE_AUTODRIVE, self._autodrive_mgr)
-
-
-        # Motor Driver Hardware
-        self.num_motors: int = 0        # initialised to 0 until we detect a HexDrive Hexpansion and can set this based on the actual number of motors it has
-
-        # Line Sensors Hardware
-        self.num_line_sensors: int = 0  # initialised to 0 until we detect a HexSense Hexpansion and can set this based on the actual number of sensors it has
-
-        # Servo Hardware
-        self.num_servos: int = 0        # initialised to 0 until we detect a HexDrive Hexpansion and can set this based on the actual number of servos it has
 
         # Overall app state (controls what is displayed and what user inputs are accepted)
         self.current_state = STATE_HEXPANSION
         self.previous_state = self.current_state
-        self.update_period = DEFAULT_BACKGROUND_UPDATE_PERIOD   # mS
-
-        # Countdown timer value
-        self.countdown_value: int = 0
 
         # Hexpansion event handlers registered directly by hexpansion_mgr
         if self._hexpansion_mgr is not None:
@@ -352,7 +204,7 @@ class BadgeBotApp(app.App):         # pylint: disable=no-member
         asyncio.get_event_loop().create_task(self._gain_focus(RequestForegroundPushEvent(self)))
 
         if self.logging:
-            print(f"BadgeBot App V{self.app_version} Initialised")
+            print(f"HexManager App V{self.app_version} Initialised")
 
 
     def _register_state_functions(self, state: int, manager: object | None):
@@ -361,13 +213,10 @@ class BadgeBotApp(app.App):         # pylint: disable=no-member
             return
         update_fn = getattr(manager, "update", None)
         draw_fn = getattr(manager, "draw", None)
-        background_fn = getattr(manager, "background_update", None)
         if callable(update_fn):
             self._state_update_dispatch[state] = update_fn
         if callable(draw_fn):
             self._state_draw_dispatch[state] = draw_fn
-        if callable(background_fn):
-            self._state_background_dispatch[state] = background_fn
 
 
     @property
@@ -378,28 +227,12 @@ class BadgeBotApp(app.App):         # pylint: disable=no-member
         return True
 
 
-    @property
-    def front_face(self):
-        """Convenience property to access front_face setting representing the forward direction for movement."""
-        if 'front_face' in self.settings:
-            return self.settings['front_face'].v
-        return _FRONT_FACE_DEFAULT
-
-
-    @property
-    def sensor_test_mgr(self):
-        """Public access to the SensorTestMgr, used by AutoDriveMgr to share the sensor manager."""
-        return self._sensor_test_mgr
-
-
     ### ASYNC EVENT HANDLERS ###
 
     async def _gain_focus(self, event: RequestForegroundPushEvent):
         if event.app is self:
             if self.logging:
-                print(f"BadgeBot gained focus in state {self.current_state}")
-            if self.current_state in _LED_CONTROL_STATES:
-                eventbus.emit(PatternDisable())
+                print(f"HexManager gained focus in state {self.current_state}")
             if self.scroll_mode_enabled:
                 eventbus.on_async(ButtonUpEvent, self._handle_button_up, self)
 
@@ -407,9 +240,7 @@ class BadgeBotApp(app.App):         # pylint: disable=no-member
     async def _lose_focus(self, event: RequestForegroundPopEvent):
         if event.app is self:
             if self.logging:
-                print(f"BadgeBot lost focus from state {self.current_state}")
-            eventbus.emit(PatternEnable())
-            self.pattern_status = True
+                print(f"HexManager lost focus from state {self.current_state}")
             if self.scroll_mode_enabled:
                 eventbus.remove(ButtonUpEvent, self._handle_button_up, self)
 
@@ -422,88 +253,16 @@ class BadgeBotApp(app.App):         # pylint: disable=no-member
             # Toggle scroll mode on/off when "C" button is released
             self.scroll(not self.is_scroll)
 
-
-    async def background_task(self):
-        """Background task loop for handling time-based updates. This runs independently of the main update/draw loop
-           and is suitable for tasks that need to run at a consistent interval regardless of the current state or drawing performance."""
-        last_time = time.ticks_ms()
-
-        while True:
-            cur_time = time.ticks_ms()
-            delta_ticks = time.ticks_diff(cur_time, last_time)
-            self.diagnostics_output(0, 1)
-            self.background_update(delta_ticks)
-            self.diagnostics_output(0, 0)
-            await asyncio.sleep_ms(max (1, self.update_period - (time.ticks_ms() - cur_time)))  # sleep for the remainder of the update period, accounting for time taken by background_update
-            last_time = cur_time
-
-
-    ### NON-ASYNC FUNCTIONS ###
-
-    def background_update(self, delta: int):
-        """Background update function that is called at a regular interval from the background task loop.
-           It dispatches to the appropriate manager based on the current state, and if motor outputs are returned, it sends them to the HexDrive app."""
-        bg_fn = self._state_background_dispatch.get(self.current_state)
-        if bg_fn is not None:
-            output = bg_fn(delta)
-            if output is not None and len(self.hexdrive_apps) > 0:
-                self.hexdrive_apps[0].set_motors(self.apply_motor_directions(output))
-
-
-    @property
-    def enable_motor_moves(self):
-        """Whether the Motor Moves feature is enabled, based on whether we have detected motor hardware and have the manager available."""
-        return self.num_motors > 1 and self._motor_moves_mgr is not None
-
-
-    @property
-    def enable_servo_test(self):
-        """Whether the Servo Test feature is enabled, based on whether we have detected servo hardware and have the manager available."""
-        return self.num_servos > 0 and self._servo_test_mgr is not None
-
-
-    @property
-    def enable_line_follow(self):
-        """Whether the Line Follow feature is enabled, based on whether we have detected line sensors and have the manager available."""
-        return self.num_motors > 1 and self.num_line_sensors > 0 and self._line_follow_mgr is not None
-
-
-    @property
-    def enable_sensor_test(self):
-        """Whether the Sensor Test feature is enabled, based on whether we have detected sensor hardware and have the manager available."""
-        #print(f"Checking if Sensor Test is enabled: sensor_test_mgr={'present' if self._sensor_test_mgr is not None else 'absent'}")
-        return self._sensor_test_mgr is not None
-
-
-    @property
-    def enable_autodrive(self):
-        """Whether the Autodrive feature is enabled, based on whether we have detected motor hardware and have the manager available."""
-        return self.num_motors > 1 and self._autodrive_mgr is not None
-
-
+ 
     @property
     def enable_hexpansion_mgr(self):
         """Whether the Hexpansion Manager is enabled, based on whether the manager is available.  Note that this does not necessarily mean that you have hexpansion hardware, as the manager can be enabled and used for managing settings related to hexpansions even if no hexpansion hardware is detected."""
         return self._hexpansion_mgr is not None
 
-
-    def initialise_settings(self):
-        """Initialise settings with default values and register them in the app's settings dictionary."""
-        if MySetting is None:
-            return  # Settings system not available, skip initialisation
-        # Module-specific settings
-        if self.enable_motor_moves and _motor_moves_init_settings is not None:
-            _motor_moves_init_settings(self.settings, MySetting)
-        if self.enable_servo_test and _servo_test_init_settings is not None:
-            _servo_test_init_settings(self.settings, MySetting)
-        if self.enable_line_follow and _line_follow_init_settings is not None:
-            _line_follow_init_settings(self.settings, MySetting)
-        if self.enable_sensor_test and _sensor_test_init_settings is not None:
-            _sensor_test_init_settings(self.settings, MySetting)
-        if self.enable_autodrive and _autodrive_init_settings is not None:
-            _autodrive_init_settings(self.settings, MySetting)
-        self.update_settings()  # Load settings from EEPROM after initialisation
-        self.fast_settings_update()  # Update fast access settings
+    @property
+    def enable_serialise_mgr(self):
+        """Whether the Serialise Manager is enabled, based on whether the manager is available."""
+        return self._serialise_mgr is not None
 
 
     def update_settings(self):
@@ -516,47 +275,10 @@ class BadgeBotApp(app.App):         # pylint: disable=no-member
                 print(f"Setting {s} = {self.settings[s].v}")
 
 
-    def fast_settings_update(self):
-        """Update fast access settings from the main settings dictionary."""
-        self._motor1_reversed: bool = self.settings['motor1_dir'].v != 0
-        self._motor2_reversed: bool = self.settings['motor2_dir'].v != 0
-
-
-    def hexdiag_setup(self):
-        """ Use HS pins on a spare Hexpansion to make diagnostic timing measurements"""
-        if self._diag_config is not None and self.hexdiag_port != self._diag_config.port:
-            for i in range(4):
-                self._diag_config.pin[i].init(mode=Pin.IN)
-            self._diag_config = None
-        if self.hexdiag_port is not None and self._diag_config is None:
-            self._diag_config = HexpansionConfig(self.hexdiag_port)
-            for i in range(4):
-                self._diag_config.pin[i].init(mode=Pin.OUT)
-
-
-    def diagnostics_output(self, index: int, value: int):
-        """Output diagnostic values to the HS pins on the diagnostics hexpansion, for measurement with an oscilloscope"""
-        if self._diag_config is not None and 0 <= index < 4:
-            self._diag_config.pin[index].value(value)
-
-
-    def _pattern_management(self):
-        if self.current_state in _LED_CONTROL_STATES:
-            if self.pattern_status:
-                eventbus.emit(PatternDisable())
-                self.pattern_status = False
-                # delay enough to allow the pattern to stop
-                time.sleep_ms(500)
-        elif self.current_state not in _LED_CONTROL_STATES and not self.pattern_status:
-            eventbus.emit(PatternEnable())
-            self.pattern_status = True
-
-
     ### MAIN APP CONTROL FUNCTIONS ###
 
     def update(self, delta: int):
         """Main update function called from the main loop. Handles state transitions, user input, and delegates to functional area managers."""
-        self.diagnostics_output(1, 1)
 
         if self.notification:
             self.notification.update(delta)
@@ -573,13 +295,8 @@ class BadgeBotApp(app.App):         # pylint: disable=no-member
         # Unfortunately, even though we can track if there is an active notification that we have triggered,
         # we don't have a way to track if there are any other notifications active that we
         # didn't trigger, so we need to perform extra display refresh cycles in case.
-        # As the draw function is VERY slow, and hence it stalls background updates
-        # we only do extra refresh cycles if the update period is long.
-        if self.update_period >= DEFAULT_BACKGROUND_UPDATE_PERIOD:
-            self.refresh = True
-
-        # manage LED PatternEnable/Disable for all states
-        #self._pattern_management()
+        # If a way to know about other notifications becomes available in the future, we can remove the need for these extra refreshes.
+        self.refresh = True
 
         # Update Hexpansion management if something 'hexpansion' related has changed
         if self.hexpansion_update_required:
@@ -594,34 +311,8 @@ class BadgeBotApp(app.App):         # pylint: disable=no-member
             if self.logging:
                 print(f"State: {self.previous_state} -> {self.current_state}")
             self.previous_state = self.current_state
-            # manage LED PatternEnable/Disable for all states
-            self._pattern_management()
             # something has changed - so worth redrawing
             self.refresh = True
-
-        if self.current_state in _LED_CONTROL_STATES:
-            if self.current_state in [STATE_FOLLOWER, STATE_AUTOTUNE]:
-                # For Line Follower and AutoTune, set LEDs based on the line sensor readings
-                # could be optimised to only update LEDs when sensor readings change, rather than every update cycle
-                # nothing while we try to optimise the sensor reading rate
-                pass
-            else:
-                if self.settings['brightness'].v < 1.0:
-                    # Scale brightness
-                    for i in range(1,13):
-                        colour = tildagonos.leds[i]
-                        tildagonos.leds[i] = (
-                            int(colour[0] * self.settings['brightness'].v),
-                            int(colour[1] * self.settings['brightness'].v),
-                            int(colour[2] * self.settings['brightness'].v),
-                        )
-                try:
-                    # saw this crash randomly - hence protected by try/except to prevent whole app crashing, and added logging to investigate further
-                    tildagonos.leds.write()
-                except OSError as e:
-                    if self.logging:
-                        print(f"Error writing to LEDs: {e}")
-        self.diagnostics_output(1, 0)
 
 
 
@@ -645,12 +336,8 @@ class BadgeBotApp(app.App):         # pylint: disable=no-member
             self.button_states.clear()
             self.minimise()
 
-        ### Shared Countdown Display ###
-        elif self.current_state == STATE_COUNTDOWN:
-            self._update_state_countdown(delta)
-
         ## Shared Warning and Message Display (for Hexpansion issues and general messages) ###
-        elif self.current_state in [STATE_MESSAGE, STATE_LOGO]:
+        elif self.current_state in [STATE_MESSAGE]:
             self._update_state_message(delta)
 
         ### Delegate to functional area managers via dispatch table ###
@@ -693,64 +380,7 @@ class BadgeBotApp(app.App):         # pylint: disable=no-member
             self.message = []
             self.message_colours = []
             self.message_type = None
-        else:
-            # "CANCEL" button is handled in common for all MINIMISE_VALID_STATES so no custom code here
-            # Show the warning screen for 10 seconds
-            self.animation_counter += delta
-            if self.message_type == "warning" and self.animation_counter > 10000:
-                # For Warnings, after 10 seconds show the logo
-                self.animation_counter = 0
-                self.current_state = STATE_LOGO
-                self.message = []
-                self.message_colours = []
-                self.message_type = None
-                self.refresh = True
-            elif self.current_state == STATE_LOGO:
-                # LED management - to match rotating logo:
-                for i in range(1,13):
-                    colour = (255, 241, 0)      # custom Robotmad shade of yellow
-                    # raised cosine cubed wave
-                    wave = self.settings['brightness'].v * pow((1.0 + cos(((i) *  pi / 1.5) - (self.rpm * self.animation_counter * pi / 7500)))/2.0, 3)
-                    # 4 sides each projecting a pattern of 3 LEDs (12 LEDs in total)
-                    tildagonos.leds[i] = (
-                        int(wave * colour[0]),
-                        int(wave * colour[1]),
-                        int(wave * colour[2]),
-                    )
-                self.refresh = True
-            else:
-                for i in range(1,13):
-                    tildagonos.leds[i] = (255,0,0) if self.message_type == "error" else (0,255,0)
-
-
-    def _update_state_countdown(self, delta: int):
-        self.clear_leds()
-        self.run_countdown_elapsed_ms += delta
-        if self.run_countdown_elapsed_ms >= _RUN_COUNTDOWN_MS:
-            if self.countdown_next_state == STATE_MOTOR_MOVES:
-                # Motor Moves: delegate to begin_moves
-                self.current_state = self.countdown_next_state
-                if self._motor_moves_mgr is not None:
-                    self._motor_moves_mgr.begin_moves()
-                else:
-                    self.return_to_menu()
-            elif self.countdown_next_state == STATE_AUTOTUNE:
-                # PID AutoTune: start the tuner after countdown
-                self.current_state = self.countdown_next_state
-                if self._autotune_mgr is not None:
-                    self._autotune_mgr.begin_tuning()
-                else:
-                    self.return_to_menu()
-            else:
-                # Generic fallback
-                self.return_to_menu()
-        else:
-            # Countdown is still running - update display
-            countdown_value = 1 + ((_RUN_COUNTDOWN_MS - self.run_countdown_elapsed_ms) // 1000)
-            if self.countdown_value != countdown_value:
-                self.countdown_value = countdown_value
-                self.refresh = True
-
+   
 
     def scroll_mode_enable(self, enable: bool):
         """Enable the potential for scroll mode to be toggled on and off by pressing the "C" button"""
@@ -775,7 +405,6 @@ class BadgeBotApp(app.App):         # pylint: disable=no-member
 
     def draw(self, ctx):
         """Main draw function called from the main loop. Handles drawing the current state, including any notifications."""
-        self.diagnostics_output(2, 1)
 
         if self.current_state == STATE_MENU and self.menu is not None:
             # These need to be drawn every frame as they contain animations
@@ -795,9 +424,7 @@ class BadgeBotApp(app.App):         # pylint: disable=no-member
                 ctx.text_align = ctx.LEFT
             ctx.text_baseline = ctx.BOTTOM
 
-            if self.current_state == STATE_LOGO:
-                draw_logo_animated(ctx, self.rpm, self.animation_counter, [self.b_msg, self.t_msg], self.qr_code)
-            elif self.scroll_mode_enabled and self.is_scroll:
+            if self.scroll_mode_enabled and self.is_scroll:
                 # Scroll mode indicator border
                 ctx.rgb(0,0.2,0).rectangle(     -120,-120, 115+H_START,240).fill()
                 ctx.rgb(0,0  ,0).rectangle(H_START-5,-120,10-2*H_START,240).fill()
@@ -812,8 +439,6 @@ class BadgeBotApp(app.App):         # pylint: disable=no-member
                 self.draw_message(ctx, self.message, self.message_colours, label_font_size)
                 if self.message_type is None or self.message_type == "warning" or self.message_type == "hexpansion":
                     button_labels(ctx, confirm_label="OK", cancel_label="Exit")
-            elif self.current_state == STATE_COUNTDOWN:
-                self.draw_message(ctx, [str(self.countdown_value)], [(1,1,0)], twentyfour_pt)
             else:
                 # Delegate to functional area managers via dispatch table
                 if self.current_state in self._state_draw_dispatch:
@@ -827,51 +452,6 @@ class BadgeBotApp(app.App):         # pylint: disable=no-member
         # As they 'withdraw' they reveal whatever is underneath them so this must be redrawn every frame while they are active to avoid leaving visual glitches on the screen.
         if self.notification:
             self.notification.draw(ctx)
-
-        self.diagnostics_output(2, 0)
-
-
-
-    @staticmethod
-    def clear_leds():
-        """Utility function to clear all LEDs. This is used when setting direction LEDs to ensure only the relevant ones are lit."""
-        for i in range(1,13):
-            tildagonos.leds[i] = (0, 0, 0)
-
-
-    def apply_motor_directions(self, output: tuple) -> tuple:
-        """Negate individual motor outputs as per settings."""
-        output1, output2 = output
-        output = (-output1 if self._motor1_reversed else output1, -output2 if self._motor2_reversed else output2)
-        if self.logging:
-            print(f"M:{output}")
-        return output
-
-
-    def set_direction_leds(self, direction: Button):
-        """LED positions rotate based on 'front_face' (0-11, each step = 30° CW).
-        Each position p maps to LED pair: (p if p>0 else 12) and (p+1).
-        """
-        f = self.front_face
-        if direction == BUTTON_TYPES["UP"]:
-            pos = f % 12
-            colour = (0, 255, 255)   # Cyan = forward
-        elif direction == BUTTON_TYPES["RIGHT"]:
-            pos = (f + 2) % 12
-            colour = (0, 255, 0)     # Green = right
-        elif direction == BUTTON_TYPES["DOWN"]:
-            pos = (f + 6) % 12
-            colour = (255, 0, 255)   # Magenta = backward
-        elif direction == BUTTON_TYPES["LEFT"]:
-            pos = (f + 8) % 12
-            colour = (255, 0, 0)     # Red = left
-        else:
-            return
-        led_a = pos if pos > 0 else 12
-        led_b = pos + 1
-        self.clear_leds()
-        tildagonos.leds[led_a] = colour
-        tildagonos.leds[led_b] = colour
 
 
     @staticmethod
@@ -901,7 +481,6 @@ class BadgeBotApp(app.App):         # pylint: disable=no-member
             print("Returning to menu")
         if menu_name is not None:
             self.set_menu(menu_name)
-        self.update_period = DEFAULT_BACKGROUND_UPDATE_PERIOD
         self.current_state = STATE_MENU
         self.refresh = True
 
@@ -973,22 +552,12 @@ class BadgeBotApp(app.App):         # pylint: disable=no-member
         if menu_name == "main":
             # construct the main menu based on template
             menu_items = MAIN_MENU_ITEMS.copy()
-            if not self.enable_servo_test and MAIN_MENU_ITEMS[MENU_ITEM_SERVO_TEST] in menu_items:
-                menu_items.remove(MAIN_MENU_ITEMS[MENU_ITEM_SERVO_TEST])
-            if not self.enable_motor_moves and MAIN_MENU_ITEMS[MENU_ITEM_MOTOR_MOVES] in menu_items:
-                menu_items.remove(MAIN_MENU_ITEMS[MENU_ITEM_MOTOR_MOVES])
-            if not self.enable_line_follow and MAIN_MENU_ITEMS[MENU_ITEM_LINE_FOLLOWER] in menu_items:
-                menu_items.remove(MAIN_MENU_ITEMS[MENU_ITEM_LINE_FOLLOWER])
-            if not self.enable_line_follow and MAIN_MENU_ITEMS[MENU_ITEM_PID_AUTOTUNE] in menu_items:
-                menu_items.remove(MAIN_MENU_ITEMS[MENU_ITEM_PID_AUTOTUNE])
-            if not self.enable_sensor_test and MAIN_MENU_ITEMS[MENU_ITEM_SENSOR_TEST] in menu_items:
-                menu_items.remove(MAIN_MENU_ITEMS[MENU_ITEM_SENSOR_TEST])
-            if not self.enable_autodrive and MAIN_MENU_ITEMS[MENU_ITEM_AUTO_DRIVE] in menu_items:
-                menu_items.remove(MAIN_MENU_ITEMS[MENU_ITEM_AUTO_DRIVE])
             if not self.enable_hexpansion_mgr and MAIN_MENU_ITEMS[MENU_ITEM_HEXPANSION] in menu_items:
                 menu_items.remove(MAIN_MENU_ITEMS[MENU_ITEM_HEXPANSION])
             if self._settings_mgr is None and MAIN_MENU_ITEMS[MENU_ITEM_SETTINGS] in menu_items:
                 menu_items.remove(MAIN_MENU_ITEMS[MENU_ITEM_SETTINGS])
+            if not self.enable_serialise_mgr and MAIN_MENU_ITEMS[MENU_ITEM_SERIALISE] in menu_items:
+                menu_items.remove(MAIN_MENU_ITEMS[MENU_ITEM_SERIALISE])
             self.menu = Menu(
                     self,
                     menu_items,
@@ -1012,71 +581,23 @@ class BadgeBotApp(app.App):         # pylint: disable=no-member
     def _main_menu_select_handler(self, item: str, idx: int):
         if self.logging:
             print(f"H:Main Menu {item} at index {idx}")
-        if   item == MAIN_MENU_ITEMS[MENU_ITEM_LINE_FOLLOWER]: # Line Follower
-            # Check for required hardware and show message if not present, otherwise start the line follower manager and switch to follower state
-            if self.num_motors == 0:
-                self.notification = Notification("No Motors")
-            elif self.num_motors == 1:
-                self.notification = Notification(" 2 Motors  Required")
-            else:
-                if self._line_follow_mgr is not None:
-                    self._line_follow_mgr.logging = self.logging # update logging setting in line follow manager based on current app setting, in case it was changed
-                    if self._line_follow_mgr.start():
-                        self.current_state = STATE_FOLLOWER
-        elif item == MAIN_MENU_ITEMS[MENU_ITEM_MOTOR_MOVES]: # Motor Moves
-            # Check for required hardware and show message if not present, otherwise start the motor moves manager and switch to motor moves state
-            if self.num_motors == 0:
-                self.notification = Notification("No Motors")
-            elif self.num_motors == 1:
-                self.notification = Notification(" 2 Motors  Required")
-            else:
-                if self._motor_moves_mgr is not None:
-                    self._motor_moves_mgr.logging = self.logging # update logging setting in motor moves manager based on current app setting, in case it was changed
-                    if self._motor_moves_mgr.start():
-                        self.current_state = STATE_MOTOR_MOVES
-        elif item == MAIN_MENU_ITEMS[MENU_ITEM_PID_AUTOTUNE]: # PID Auto Tune
-            # Check for required hardware and show message if not present, otherwise start the autotune manager and switch to autotune state
-            if self.num_motors == 0:
-                self.notification = Notification("No Motors")
-            elif self.num_motors == 1:
-                self.notification = Notification(" 2 Motors  Required")
-            else:
-                if self._autotune_mgr is not None:
-                    self._autotune_mgr.logging = self.logging # update logging setting in autotune manager based on current app setting, in case it was changed
-                    if self._autotune_mgr.start():
-                        self.current_state = STATE_AUTOTUNE
-        elif item == MAIN_MENU_ITEMS[MENU_ITEM_SERVO_TEST]: # Servo Test
-            # Check for required hardware and show message if not present, otherwise start the servo test manager and switch to servo test state
-            if self.num_servos == 0:
-                self.notification = Notification("No Servos")
-            else:
-                if self._servo_test_mgr is not None:
-                    self._servo_test_mgr.logging = self.logging # update logging setting in servo test manager based on current app setting, in case it was changed
-                    if self._servo_test_mgr.start():
-                        self.current_state = STATE_SERVO
-        elif item == MAIN_MENU_ITEMS[MENU_ITEM_SENSOR_TEST]: # Sensor Test
-            if self._sensor_test_mgr is not None:
-                self._sensor_test_mgr.logging = self.logging # update logging setting in sensor test manager based on current app setting, in case it was changed
-                if self._sensor_test_mgr.start():
-                    self.current_state = STATE_SENSOR
-        elif item == MAIN_MENU_ITEMS[MENU_ITEM_AUTO_DRIVE]: # Auto Drive
-            if self._autodrive_mgr is not None:
-                self._autodrive_mgr.logging = self.logging # update logging setting in autodrive manager based on current app setting, in case it was changed
-                if self._autodrive_mgr.start():
-                    self.current_state = STATE_AUTODRIVE
-        elif item == MAIN_MENU_ITEMS[MENU_ITEM_HEXPANSION]: # Hexpansion Management
+        if item == MAIN_MENU_ITEMS[MENU_ITEM_HEXPANSION]: # Hexpansion Management
             if self._hexpansion_mgr is not None:
                 self._hexpansion_mgr.logging = self.logging # update logging setting in hexpansion manager based on current app setting, in case it was changed
                 if self._hexpansion_mgr.start():
                     self.current_state = STATE_HEXPANSION
+        elif item == MAIN_MENU_ITEMS[MENU_ITEM_SERIALISE]:  # Serialise
+            if self._serialise_mgr is not None:
+                self._serialise_mgr.logging = self.logging # update logging setting in serialise manager based on current app setting, in case it was changed
+                if self._serialise_mgr.start():
+                    self.current_state = STATE_SERIALISE
         elif item == MAIN_MENU_ITEMS[MENU_ITEM_SETTINGS]:   # Settings
             self.set_menu(MAIN_MENU_ITEMS[MENU_ITEM_SETTINGS])
         elif item == MAIN_MENU_ITEMS[MENU_ITEM_ABOUT]:      # About
             self.set_menu(None)
             self.button_states.clear()
-            self.animation_counter = 0
-            self.current_state = STATE_LOGO
-            self.refresh = True
+            # Show a message to the user about the current version of the app, and some basic instructions on how to use it, with a confirm button to acknowledge and return to the menu, and a cancel button to exit the app.
+            self.show_message(["HexManager App",f"V{self.app_version}","By RobotMad"], msg_colours=[(1,1,1),(1,1,0),(0,1,1)], msg_type="info")
         elif item == MAIN_MENU_ITEMS[MENU_ITEM_EXIT]:       # Exit
             if self._hexpansion_mgr is not None:
                 self._hexpansion_mgr.unregister_events()
@@ -1113,4 +634,27 @@ class BadgeBotApp(app.App):         # pylint: disable=no-member
         self.set_menu()
 
 
-__app_export__ = BadgeBotApp
+
+def parse_version(version):
+    """Parse a version string into a list of components for comparison.  Components are converted to integers where possible, to allow correct ordering (e.g. 1.10 > 1.2).  Pre-release and build metadata are ignored for simplicity, as they are not currently used."""
+    #pre_components = ["final"]
+    #build_components = ["0", "000000z"]
+    #build = ""
+    components = []
+    if "+" in version:
+        version, build = version.split("+", 1)          # pylint: disable=unused-variable
+        #build_components = build.split(".")
+    if "-" in version:
+        version, pre_release = version.split("-", 1)    # pylint: disable=unused-variable
+        #if pre_release.startswith("rc"):
+        #    # Re-write rc as c, to support a1, b1, rc1, final ordering
+        #    pre_release = pre_release[1:]
+        #pre_components = pre_release.split(".")
+    version = version.strip("v").split(".")
+    components = [int(item) if item.isdigit() else item for item in version]
+    #components.append([int(item) if item.isdigit() else item for item in pre_components])
+    #components.append([int(item) if item.isdigit() else item for item in build_components])
+    return components
+
+
+__app_export__ = HexManagerApp

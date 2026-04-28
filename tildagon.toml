@@ -1,10 +1,10 @@
 [app]
 # The name of your app as displayed in the menu
-name = "BadgeBot"
+name = "HexManager"
 
 # The submenu where your app should appear.
 # One of: "Badge", "Music", "Media", "Apps", "Games", "Background"
-category = "Apps"
+category = "Badge"
 
 # OPTIONAL: Same as above, for compatibility with older firmware
 # versions that can't handle categories introduced afterwards.
@@ -18,7 +18,7 @@ category = "Apps"
 
 [entry]
 # The name of your entry point `Application` class
-# class = "BadgeBotApp"
+# class = "HexManagerApp"
 
 [metadata]
 # Your nickname.  Must be at most 32 characters!
@@ -28,13 +28,13 @@ author = "Team Robotmad"
 license = "LGPL-3.0-only"
 
 # URL to the repository of your app.
-url = "https://www.github.com/TeamRobotmad/BadgeBot"
+url = "https://www.github.com/TeamRobotmad/HexManager"
 
 # Description of your app.  Maximum 140 characters!
-description = "A demo tildagon app for use with Hex Drive hexpansion "
+description = "tildagon app for managing hexpansion EEPROMs"
 
 # Version number of your app.  If you push a commit where this number is
 # increased, we interpret this as a new version being released.
 #
 # Version number must be a string in major.minor format (e.g. "1.3").
-version = "1.5"
+version = "0.1"

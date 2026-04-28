@@ -1,7 +1,7 @@
 """Shared pytest fixtures for BadgeBot tests.
 
 Provides a generic fake-hexpansion framework that allows tests to simulate
-the presence of any hexpansion type (HexDrive, HexSense, etc.) without
+the presence of any hexpansion type without
 real hardware.  The mechanism patches ``HexpansionMgr._read_header()`` so that
 ``HexpansionMgr._check_port_for_known_hexpansions`` finds a valid EEPROM
 header, and injects a lightweight stub app into ``scheduler.apps`` so that
@@ -9,14 +9,14 @@ header, and injects a lightweight stub app into ``scheduler.apps`` so that
 
 Usage in tests::
 
-    def test_something(badgebot_app_with_hexpansion):
+    def test_something(hexmanager_app_with_hexpansion):
         # 2-Motor HexDrive on port 1 by default
-        app = badgebot_app_with_hexpansion
+        app = hexmanager_app_with_hexpansion
         assert app.num_motors == 2
 
     @pytest.mark.parametrize("hexdrive_pid", [0xCBCC])
-    def test_servo(badgebot_app_with_hexpansion):
-        app = badgebot_app_with_hexpansion
+    def test_servo(hexmanager_app_with_hexpansion):
+        app = hexmanager_app_with_hexpansion
         assert app.num_servos == 4
 
 The core helper :func:`install_fake_hexpansion` is deliberately generic –
@@ -92,8 +92,6 @@ class _FakeHexDriveApp:
 
     * ``config.port`` – the port number
     * ``get_version()`` – returns the current HEXDRIVE_APP_VERSION
-    * ``get_status()`` – returns True (PWM ready)
-    * ``set_motors()`` – no-op
     """
 
     def __init__(self, port: int, version: int):
@@ -104,25 +102,6 @@ class _FakeHexDriveApp:
 
     def get_version(self) -> int:
         return self._version
-
-    def get_status(self) -> bool:
-        return True
-
-    # Motor control no-ops
-    def set_motors(self, outputs):
-        pass
-
-    def set_power(self, state):
-        return True
-
-    def set_freq(self, freq, channel=None):
-        return True
-
-    def set_logging(self, state):
-        pass
-
-    def initialise(self):
-        return True
 
 
 # We need the class name to match "HexDriveApp" for _find_hexpansion_app
@@ -162,7 +141,7 @@ def install_fake_hexpansion(vid: int, pid: int, port: int,
     if app_class is None:
         app_class = HexDriveApp
     if app_version is None:
-        from sim.apps.BadgeBot.EEPROM.hexdrive import VERSION
+        from sim.apps.HexManager.EEPROM.hexdrive import VERSION
         app_version = VERSION
 
     fake_app = app_class(port, app_version)
@@ -180,7 +159,7 @@ def install_fake_hexpansion(vid: int, pid: int, port: int,
     patches = []
 
     # Patch the instance method on the class so all HexpansionMgr instances use the stub
-    p1 = patch("sim.apps.BadgeBot.hexpansion_mgr.HexpansionMgr._read_header", _fake_read_header)
+    p1 = patch("sim.apps.HexManager.hexpansion_mgr.HexpansionMgr._read_header", _fake_read_header)
     p1.start()
     patches.append(p1)
 
@@ -228,20 +207,19 @@ def hexdrive_pid():
 
 
 @pytest.fixture
-def badgebot_app():
-    """A bare BadgeBotApp with no fake hexpansions.
+def hexmanager_app():
+    """A bare HexManagerApp with no fake hexpansions.
 
-    No hexpansion is detected, so ``initialise_settings()`` is never called
-    by the hexpansion manager and only the minimal base settings exist.
+    only the minimal base settings exist.
     """
     _ensure_sim_initialized()
-    from sim.apps.BadgeBot import BadgeBotApp
-    return BadgeBotApp()
+    from sim.apps.HexManager import HexManagerApp
+    return HexManagerApp()
 
 
 @pytest.fixture
-def badgebot_app_with_hexpansion(hexdrive_pid, hexdrive_port):
-    """A BadgeBotApp that has detected a fake HexDrive on *hexdrive_port*.
+def hexmanager_app_with_hexpansion(hexdrive_pid, hexdrive_port):
+    """A HexManagerApp that has detected a fake HexDrive on *hexdrive_port*.
 
     The fixture:
     1. Patches ``HexpansionMgr._read_header`` so the HexpansionMgr finds a valid header.
@@ -254,11 +232,11 @@ def badgebot_app_with_hexpansion(hexdrive_pid, hexdrive_port):
     """
     _ensure_sim_initialized()
 
-    vid = 0xCAFE  # standard VID for all hexpansion types
+    vid = 0xCAFE  # standard VID for most hexpansion types
     with install_fake_hexpansion(vid, hexdrive_pid, hexdrive_port):
-        from sim.apps.BadgeBot import BadgeBotApp
-        from sim.apps.BadgeBot.app import STATE_MENU
-        app = BadgeBotApp()
+        from sim.apps.HexManager import HexManagerApp
+        from sim.apps.HexManager.app import STATE_MENU
+        app = HexManagerApp()
 
         # Drive the state machine: the hexpansion_mgr starts in _SUB_INIT,
         # and needs several update() cycles to go through scan → check →
@@ -272,7 +250,7 @@ def badgebot_app_with_hexpansion(hexdrive_pid, hexdrive_port):
             hexpansion_mgr = getattr(app, "hexpansion_mgr", None)
             sub_state = getattr(hexpansion_mgr, "sub_state", None)
             pytest.fail(
-                "badgebot_app_with_hexpansion did not reach STATE_MENU after "
+                "hexmanager_app_with_hexpansion did not reach STATE_MENU after "
                 f"20 update() calls; final state={app.current_state}, "
                 f"hexpansion sub_state={sub_state}"
             )
