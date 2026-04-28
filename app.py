@@ -1,24 +1,18 @@
 """ Main Application File for HexManager."""
 import asyncio
 import sys
-import time
-from math import cos, pi
 
 import ota
 import settings
 from app_components.notification import Notification
-from app_components.tokens import button_labels, label_font_size, twentyfour_pt, clear_background
+from app_components.tokens import button_labels, label_font_size, clear_background
 from app_components import Menu
 from events.input import BUTTON_TYPES, Button, Buttons, ButtonUpEvent
 from frontboards.twentyfour import BUTTONS
 from system.eventbus import eventbus
-from system.hexpansion.config import HexpansionConfig
-from system.patterndisplay.events import PatternDisable, PatternEnable
 from system.scheduler.events import (RequestForegroundPopEvent,
                                      RequestForegroundPushEvent,
                                      RequestStopAppEvent)
-from tildagonos import tildagonos
-from machine import Pin
 import app
 
 from .EEPROM.hexdrive import VERSION as HEXDRIVE_APP_VERSION
