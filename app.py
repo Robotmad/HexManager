@@ -93,6 +93,8 @@ def _load_hexpansion_types(app_file_path):
     types_list = []
     warnings = []
     if HexpansionType is None:
+        warnings.append("hexpansion type support unavailable")
+        print("H:Warning: hexpansion type support unavailable (HexpansionType import failed)")
         return types_list, warnings
     json_path = "/" + app_file_path.rsplit("/", 1)[0] + "/" + _HEXPANSIONS_JSON
     try:
