@@ -20,19 +20,10 @@
       "app_mpy_name": "OPTIONAL. Filename of the compiled .mpy app to write to the hexpansion EEPROM, e.g. 'myhex.mpy'. File must exist in the HexManager app folder on the badge. NOTE: currently only a single .mpy file is supported.",
       "app_mpy_version": "OPTIONAL. Integer version number of the .mpy app (e.g. 1, 2, 7). Used to detect when an upgrade is needed.",
       "app_name": "OPTIONAL. Python class name of the hexpansion app, e.g. 'MyHexApp'. Used to check if the correct app is already running.",
-      "motors": "OPTIONAL. Number of motor output channels (informational metadata, default 0).",
-      "servos": "OPTIONAL. Number of servo output channels (informational metadata, default 0)."
     },
-    "notes": [
-      "VID/PID identify the hexpansion type when its EEPROM header is read.",
-      "TeamRobotmad VID 52171 (0xCBCB): PIDs above 255 (0xFF) are new-style; PIDs 0xCBCA-0xCBCD are legacy HexDrive V1.",
-      "If you use the uncontrolled VID 51966 (0xCAFE), choose a unique PID to avoid clashes with other hexpansions.",
-      "eeprom_total_size must be a multiple of eeprom_page_size."
-    ]
   },
   "hexpansions": [
     {
-      "_comment": "HexDrive V1 - legacy 16-bit PID format. pid high byte = VID low byte (0xCB), low byte identifies sub-type.",
       "pid": 52171, "vid": 51966, "name": "HexDrive",
       "app_mpy_name": "hexdrive.mpy", "app_mpy_version": 7, "app_name": "HexDriveApp",
       "sub_type": "Uncommitted", "motors": 2, "servos": 4
@@ -53,13 +44,11 @@
       "sub_type": "1 Mot 2 Srvo", "motors": 1, "servos": 2
     },
     {
-      "_comment": "HexSense - 65536-byte EEPROM (512 Kbit), 128-byte pages. TeamRobotmad VID, new-style PID.",
       "pid": 256, "vid": 52171, "name": "HexSense",
       "eeprom_total_size": 65536, "eeprom_page_size": 128,
       "sub_type": "2 Line Sensors"
     },
     {
-      "_comment": "HexDrive V2 - TeamRobotmad VID, 32768-byte EEPROM, 64-byte pages.",
       "pid": 512, "vid": 52171, "name": "HexDriveV2",
       "eeprom_total_size": 32768, "eeprom_page_size": 64,
       "app_mpy_name": "hexdrive.mpy", "app_mpy_version": 7, "app_name": "HexDriveApp",
@@ -78,17 +67,14 @@
       "sub_type": "2 Servo", "servos": 2
     },
     {
-      "_comment": "HexTest - TeamRobotmad test board. No app.",
       "pid": 768, "vid": 52171, "name": "HexTest",
       "eeprom_total_size": 65536, "eeprom_page_size": 128
     },
     {
-      "_comment": "HexDiag - TeamRobotmad diagnostics board. No app.",
       "pid": 1024, "vid": 52171, "name": "HexDiag",
       "eeprom_total_size": 65536, "eeprom_page_size": 128
     },
     {
-      "_comment": "GPS hexpansion - small 2048-byte EEPROM (16 Kbit), 16-byte pages. Default VID (0xCAFE).",
       "pid": 4757, "vid": 51966, "name": "GPS",
       "eeprom_total_size": 2048, "eeprom_page_size": 16,
       "app_mpy_name": "gps.mpy", "app_mpy_version": 1, "app_name": "GPSApp",
