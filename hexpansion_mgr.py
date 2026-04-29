@@ -1274,5 +1274,3 @@ class HexpansionType:
         self.app_mpy_name: str | None = app_mpy_name
         self.app_mpy_version: str | None = app_mpy_version
         self.app_name: str | None = app_name
-        self.motors: int = motors
-        self.servos: int = servos
