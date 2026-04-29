@@ -342,15 +342,62 @@ class TestLoadHexpansionTypesFromJson:
 
 
 # =====================================================================
-#  app_mpy_version=None means "don't check version"
+#  _versions_match helper
 # =====================================================================
 
-class TestAppMpyVersionNone:
-    """When app_mpy_version is None, _check_hexpansion_app_on_port must treat
-    any running app as current (APP_OK) rather than always flagging it as old.
+class TestVersionsMatch:
+    """Unit tests for the _versions_match() module-level helper."""
 
-    The test exercises the method directly, wiring up a minimal fake app
-    instance and a HexpansionType whose app_mpy_version is None.
+    def setup_method(self):
+        from tests.conftest import _ensure_sim_initialized
+        _ensure_sim_initialized()
+        from sim.apps.HexManager.hexpansion_mgr import _versions_match
+        self.vm = _versions_match
+
+    # --- integer versions ------------------------------------------------
+    def test_int_match(self):
+        assert self.vm(7, 7) is True
+
+    def test_int_mismatch(self):
+        assert self.vm(6, 7) is False
+
+    def test_none_running_no_match(self):
+        assert self.vm(None, 7) is False
+
+    # --- string versions -------------------------------------------------
+    def test_str_match(self):
+        assert self.vm("1.2.3", "1.2.3") is True
+
+    def test_str_v_prefix_stripped(self):
+        assert self.vm("v1.2.3", "1.2.3") is True
+
+    def test_str_numeric_ordering(self):
+        # "1.10" must NOT equal "1.2" after tokenisation
+        assert self.vm("1.10", "1.2") is False
+
+    def test_str_mismatch(self):
+        assert self.vm("1.2.3", "1.2.4") is False
+
+    def test_str_pre_release_stripped(self):
+        # pre-release suffix is ignored for equality
+        assert self.vm("1.2.3-rc1", "1.2.3") is True
+
+    def test_str_build_metadata_stripped(self):
+        assert self.vm("1.2.3+build.42", "1.2.3") is True
+
+
+# =====================================================================
+#  _check_hexpansion_app_on_port: VERSION attribute & app_mpy_version=None
+# =====================================================================
+
+class TestCheckHexpansionAppOnPort:
+    """Exercises _check_hexpansion_app_on_port directly via a minimal fake.
+
+    Verifies that:
+    * VERSION (module-level constant) is used, not get_version()
+    * lowercase ``version`` attribute is accepted as a fallback
+    * app_mpy_version=None → APP_OK (don't check)
+    * integer and string version comparisons work correctly
     """
 
     def setup_method(self):
@@ -368,45 +415,64 @@ class TestAppMpyVersionNone:
         self.OLD_APP = _HEXPANSION_STATE_RECOGNISED_OLD_APP
         self.app = HexManagerApp()
 
-    def _make_mgr_with_fake_hexpansion_app(self, app_mpy_version, running_version):
-        """Return a HexpansionMgr whose _find_hexpansion_app returns a stub
-        reporting *running_version*, pointed at a HexpansionType with
-        *app_mpy_version*.  Port 1 is used throughout.
+    def _run(self, app_mpy_version, running_version, use_uppercase=True):
+        """Wire up a fake hexpansion app and call _check_hexpansion_app_on_port.
+
+        *use_uppercase* controls whether the fake exposes VERSION (True) or
+        the lowercase version attribute (False).
         """
         from unittest.mock import patch
 
         class _FakeHexApp:
-            def get_version(self):
-                return running_version
+            pass
 
-        fake_app_instance = _FakeHexApp()
+        fake = _FakeHexApp()
+        if use_uppercase:
+            fake.VERSION = running_version
+        else:
+            fake.version = running_version
+
         hex_type = self.HexpansionType(pid=0xCBCA, name="TestHex",
                                        app_mpy_version=app_mpy_version,
                                        app_name="TestApp")
         self.app.HEXPANSION_TYPES = [hex_type]
-
         mgr = self.HexpansionMgr(self.app)
-        # Patch _find_hexpansion_app so it returns our stub without needing
-        # the scheduler or real hardware.
-        with patch.object(mgr, "_find_hexpansion_app", return_value=fake_app_instance):
+        with patch.object(mgr, "_find_hexpansion_app", return_value=fake):
             mgr._check_hexpansion_app_on_port(1, 0)
-
         return mgr
 
-    def test_none_version_not_checked_app_ok(self):
+    # --- app_mpy_version = None ----------------------------------------
+    def test_none_expected_version_is_app_ok(self):
         """app_mpy_version=None → APP_OK regardless of running version."""
-        mgr = self._make_mgr_with_fake_hexpansion_app(
-            app_mpy_version=None, running_version=99)
+        mgr = self._run(app_mpy_version=None, running_version=99)
         assert mgr._hexpansion_state_by_slot[0] == self.APP_OK
 
-    def test_matching_version_is_app_ok(self):
-        """When versions match, state must be APP_OK."""
-        mgr = self._make_mgr_with_fake_hexpansion_app(
-            app_mpy_version=7, running_version=7)
+    # --- integer versions ----------------------------------------------
+    def test_matching_int_version_is_app_ok(self):
+        mgr = self._run(app_mpy_version=7, running_version=7)
         assert mgr._hexpansion_state_by_slot[0] == self.APP_OK
 
-    def test_mismatched_version_is_old_app(self):
-        """When versions differ, state must be RECOGNISED_OLD_APP."""
-        mgr = self._make_mgr_with_fake_hexpansion_app(
-            app_mpy_version=7, running_version=6)
+    def test_mismatched_int_version_is_old_app(self):
+        mgr = self._run(app_mpy_version=7, running_version=6)
+        assert mgr._hexpansion_state_by_slot[0] == self.OLD_APP
+
+    # --- VERSION (uppercase) attribute preferred -----------------------
+    def test_uppercase_VERSION_attribute_used(self):
+        """VERSION (uppercase) is the primary source; no get_version() call."""
+        mgr = self._run(app_mpy_version=7, running_version=7, use_uppercase=True)
+        assert mgr._hexpansion_state_by_slot[0] == self.APP_OK
+
+    # --- lowercase version fallback ------------------------------------
+    def test_lowercase_version_fallback(self):
+        """lowercase version attribute is accepted when VERSION is absent."""
+        mgr = self._run(app_mpy_version=7, running_version=7, use_uppercase=False)
+        assert mgr._hexpansion_state_by_slot[0] == self.APP_OK
+
+    # --- string versions -----------------------------------------------
+    def test_matching_string_version_is_app_ok(self):
+        mgr = self._run(app_mpy_version="1.2.3", running_version="1.2.3")
+        assert mgr._hexpansion_state_by_slot[0] == self.APP_OK
+
+    def test_mismatched_string_version_is_old_app(self):
+        mgr = self._run(app_mpy_version="1.2.4", running_version="1.2.3")
         assert mgr._hexpansion_state_by_slot[0] == self.OLD_APP
