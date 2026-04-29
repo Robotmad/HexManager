@@ -1,9 +1,11 @@
+import json
 import sys
+import tempfile
 
 import pytest
 
 # Add badge software to pythonpath
-sys.path.append("../../../") 
+sys.path.append("../../../")
 
 import sim.run
 from system.hexpansion.config import HexpansionConfig
@@ -32,7 +34,7 @@ def test_app_versions_match():
     import sim.apps.HexManager.app as HexManager
     import sim.apps.HexManager.EEPROM.hexdrive as HexDrive
     assert HexManager.HEXDRIVE_APP_VERSION == HexDrive.VERSION
-    # above test should always pass since HexManager.HEXDRIVE_APP_VERSION is imported from HexDrive.VERSION, but this test will at least catch if someone accidentally changes one without the other. 
+    # above test should always pass since HexManager.HEXDRIVE_APP_VERSION is imported from HexDrive.VERSION, but this test will at least catch if someone accidentally changes one without the other.
 
 def test_hexdrive_type_pids_consistent():
     """Verify HexDriveType PIDs in hexdrive.py are consistent with HexpansionType PIDs in app.py.
@@ -90,7 +92,8 @@ class TestHexpansionTypeHexStrings:
     """
 
     def setup_method(self):
-        import sim.run  # noqa: F401
+        from tests.conftest import _ensure_sim_initialized
+        _ensure_sim_initialized()
         from sim.apps.HexManager.hexpansion_mgr import HexpansionType
         self.HexpansionType = HexpansionType
 
@@ -133,3 +136,187 @@ class TestHexpansionTypeHexStrings:
         with pytest.raises(ValueError):
             self.HexpansionType("not_a_number", "HexDrive")
 
+
+# =====================================================================
+#  hexpansions.json loading with quoted hex PID / VID
+# =====================================================================
+
+def _write_temp_json(data: dict) -> str:
+    """Write *data* as JSON to a named temp file and return its path.
+
+    The caller is responsible for deleting the file after use.
+    """
+    f = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
+    json.dump(data, f)
+    f.close()
+    return f.name
+
+
+class TestLoadHexpansionTypesFromJson:
+    """Tests for ``_load_hexpansion_types`` using a stable, injected JSON path.
+
+    The production ``hexpansions.json`` evolves over time and is not suitable
+    as a test fixture.  These tests write minimal temporary JSON files and pass
+    their paths via the ``json_path`` override added to
+    ``_load_hexpansion_types``, keeping the tests hermetic.
+    """
+
+    def setup_method(self):
+        from tests.conftest import _ensure_sim_initialized
+        _ensure_sim_initialized()
+        from sim.apps.HexManager.app import _load_hexpansion_types
+        self._load = _load_hexpansion_types
+
+    def _load_from(self, hexpansions: list) -> list:
+        """Helper: write a minimal JSON file and return the parsed types list."""
+        path = _write_temp_json({"hexpansions": hexpansions})
+        try:
+            types, warnings = self._load("dummy/app.py", json_path=path)
+        finally:
+            import os
+            os.unlink(path)
+        return types, warnings
+
+    # ------------------------------------------------------------------
+    # Baseline: decimal integers (existing behaviour must still work)
+    # ------------------------------------------------------------------
+
+    def test_decimal_pid_and_vid(self):
+        """Plain decimal integers are parsed correctly."""
+        types, warnings = self._load_from([
+            {"pid": 51966, "name": "TestHex", "vid": 51966}
+        ])
+        assert not warnings
+        assert len(types) == 1
+        assert types[0].pid == 0xCAFE
+        assert types[0].vid == 0xCAFE
+
+    def test_default_vid_used_when_omitted(self):
+        """VID defaults to 0xCAFE when not specified."""
+        types, warnings = self._load_from([{"pid": 1, "name": "NoVid"}])
+        assert not warnings
+        assert types[0].vid == 0xCAFE
+
+    # ------------------------------------------------------------------
+    # Quoted hex strings for PID
+    # ------------------------------------------------------------------
+
+    def test_quoted_hex_pid(self):
+        """Quoted hex string PID is converted to the correct integer."""
+        types, warnings = self._load_from([
+            {"pid": "0xCBCA", "name": "HexDrive"}
+        ])
+        assert not warnings
+        assert len(types) == 1
+        assert types[0].pid == 0xCBCA
+
+    def test_quoted_hex_pid_uppercase(self):
+        """Uppercase quoted hex string PID is accepted."""
+        types, warnings = self._load_from([
+            {"pid": "0XCBCA", "name": "HexDrive"}
+        ])
+        assert not warnings
+        assert types[0].pid == 0xCBCA
+
+    # ------------------------------------------------------------------
+    # Quoted hex strings for VID
+    # ------------------------------------------------------------------
+
+    def test_quoted_hex_vid(self):
+        """Quoted hex string VID is converted to the correct integer."""
+        types, warnings = self._load_from([
+            {"pid": 1, "name": "TestHex", "vid": "0xCAFE"}
+        ])
+        assert not warnings
+        assert types[0].vid == 0xCAFE
+
+    def test_quoted_hex_vid_teamrobotmad(self):
+        """TeamRobotmad VID as quoted hex string."""
+        types, warnings = self._load_from([
+            {"pid": "0xCBCB", "name": "HexDrive", "vid": "0xCBCB"}
+        ])
+        assert not warnings
+        assert types[0].vid == 0xCBCB
+        assert types[0].pid == 0xCBCB
+
+    # ------------------------------------------------------------------
+    # Quoted hex strings for EEPROM sizes
+    # ------------------------------------------------------------------
+
+    def test_quoted_hex_eeprom_sizes(self):
+        """eeprom_total_size and eeprom_page_size accept quoted hex strings."""
+        types, warnings = self._load_from([
+            {"pid": 1, "name": "BigEEPROM",
+             "eeprom_total_size": "0x10000", "eeprom_page_size": "0x80"}
+        ])
+        assert not warnings
+        assert types[0].eeprom_total_size == 65536
+        assert types[0].eeprom_page_size == 128
+
+    # ------------------------------------------------------------------
+    # Mixed: some fields hex strings, others plain ints
+    # ------------------------------------------------------------------
+
+    def test_mixed_hex_string_and_int(self):
+        """A mix of quoted hex pid and plain int vid works correctly."""
+        types, warnings = self._load_from([
+            {"pid": "0xCBCA", "name": "HexDrive", "vid": 52171}
+        ])
+        assert not warnings
+        assert types[0].pid == 0xCBCA
+        assert types[0].vid == 52171
+
+    # ------------------------------------------------------------------
+    # Multiple entries, all with hex strings
+    # ------------------------------------------------------------------
+
+    def test_multiple_entries_all_hex_strings(self):
+        """Multiple entries with quoted hex strings are all parsed correctly."""
+        types, warnings = self._load_from([
+            {"pid": "0xCBCA", "name": "HexDrive", "vid": "0xCAFE", "sub_type": "2 Motor"},
+            {"pid": "0xCBCC", "name": "HexDrive", "vid": "0xCAFE", "sub_type": "4 Servo"},
+        ])
+        assert not warnings
+        assert len(types) == 2
+        assert types[0].pid == 0xCBCA
+        assert types[1].pid == 0xCBCC
+
+    # ------------------------------------------------------------------
+    # Error handling: invalid string is skipped with a warning
+    # ------------------------------------------------------------------
+
+    def test_invalid_hex_string_entry_skipped(self):
+        """An entry with an unparseable pid string is skipped; valid entries remain."""
+        types, warnings = self._load_from([
+            {"pid": "not_a_number", "name": "Bad"},
+            {"pid": "0xCBCA", "name": "Good"},
+        ])
+        # The bad entry should be skipped; the good one should be present
+        assert len(types) == 1
+        assert types[0].pid == 0xCBCA
+
+    # ------------------------------------------------------------------
+    # Error handling: missing file
+    # ------------------------------------------------------------------
+
+    def test_missing_file_returns_warning(self):
+        types, warnings = self._load("dummy/app.py",
+                                     json_path="/nonexistent/path/hexpansions.json")
+        assert types == []
+        assert any("not found" in w for w in warnings)
+
+    # ------------------------------------------------------------------
+    # Error handling: malformed JSON
+    # ------------------------------------------------------------------
+
+    def test_malformed_json_returns_warning(self):
+        import os
+        f = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
+        f.write("{this is not valid json}")
+        f.close()
+        try:
+            types, warnings = self._load("dummy/app.py", json_path=f.name)
+        finally:
+            os.unlink(f.name)
+        assert types == []
+        assert any("parse error" in w for w in warnings)
