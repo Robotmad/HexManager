@@ -317,7 +317,6 @@ class HexpansionMgr:
 
     def _update_detail_page_count(self):
         """Set page count to 3 if the selected port has a recognised type with sub_type or app_name, else 2, or 1 if blank EEPROM."""
-        app = self._app
         state_idx = self._hexpansion_state_by_slot[self._port_selected - 1] if 1 <= self._port_selected <= _NUM_HEXPANSION_SLOTS else None
         if state_idx is not None:
             if state_idx == _HEXPANSION_STATE_UNRECOGNISED:
