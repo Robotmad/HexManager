@@ -3,7 +3,7 @@
     "about": "HexManager Hexpansion Type Definitions - edit this file to add your own hexpansion types.",
     "instructions": [
       "Add your hexpansion to the 'hexpansions' list below, using the existing entries as templates.",
-      "All integer values are DECIMAL (not hex). Use a calculator to convert: e.g. 0xCAFE = 51966.",
+      "All integer values may be written as decimal (e.g. 51966) or as quoted hex strings (e.g. \"0xCAFE\"). Quoted hex strings must use speech marks to be valid JSON.",
       "Only 'pid' and 'name' are required; all other fields are optional and have sensible defaults.",
       "The app .mpy file must be placed in the HexManager app folder on the badge.",
       "mpy files are compiled from .py source using the mpy-cross utility (see README.md).",
@@ -17,7 +17,7 @@
       "eeprom_total_size": "OPTIONAL. Total EEPROM size in BYTES. Default 8192 (8 KB). Common values: 2048, 8192, 32768, 65536.",
       "eeprom_page_size": "OPTIONAL. EEPROM write page size in BYTES. Default 32. Common values: 16, 32, 64, 128. Check your EEPROM datasheet.",
       "sub_type": "OPTIONAL. Short label for this specific variant, e.g. '2 Motor'. Shown to the user alongside the name.",
-      "app_mpy_name": "OPTIONAL. Filename of the compiled .mpy app to write to the hexpansion EEPROM, e.g. 'myhex.mpy'. File must exist in the HexManager app folder on the badge. NOTE: currently only a single .mpy file is supported.",
+      "app_mpy_name": "OPTIONAL. Filename of the compiled .mpy app to write to the hexpansion EEPROM, e.g. 'myhex.mpy'. File must exist in the EEPROM sub-folder of the HexManager app folder on the badge (e.g. /apps/HexManager/EEPROM/myhex.mpy). NOTE: the file is renamed to 'app.mpy' when programmed onto the EEPROM so that Badge OS automatically detects and runs it when the hexpansion is inserted into a badge slot. NOTE: currently only a single .mpy file is supported.",
       "app_mpy_version": "OPTIONAL. Integer version number of the .mpy app (e.g. 1, 2, 7). Used to detect when an upgrade is needed.",
       "app_name": "OPTIONAL. Python class name of the hexpansion app, e.g. 'MyHexApp'. Used to check if the correct app is already running.",
     },
