@@ -15,14 +15,11 @@ from system.scheduler.events import (RequestForegroundPopEvent,
                                      RequestStopAppEvent)
 import app
 
-from .EEPROM.hexdrive import VERSION as HEXDRIVE_APP_VERSION  # kept for backward compatibility / test access
-from .EEPROM.gps import VERSION as GPS_APP_VERSION             # kept for backward compatibility / test access
+APP_VERSION = "0.1" # HexManager App Version Number
+
 
 _HEXPANSIONS_JSON = "hexpansions.json"  # Name of the hexpansion type definitions file
-
-
 _SETTINGS_NAME_PREFIX = "hexmanager."  # Prefix for settings keys in EEPROM
-APP_VERSION = "0.1" # HexManager App Version Number
 
 # Screen positioning constant for scroll mode display
 H_START = -63
@@ -83,11 +80,21 @@ SerialiseMgr,                  _serialise_init_settings  = _try_import('serialis
 SettingsMgr, MySetting                                   = _try_import('settings_mgr',   'SettingsMgr', 'MySetting')
 
 
-def _load_hexpansion_types(app_file_path):
+def _load_hexpansion_types(app_file_path, json_path=None):
     """Load hexpansion type definitions from hexpansions.json next to this app file.
 
     Returns (types_list, warnings_list).  On any error the types_list will be
     empty and warnings_list will contain a short human-readable description.
+
+    Parameters
+    ----------
+    app_file_path : str
+        Path to this app file, used to locate hexpansions.json when json_path
+        is not provided.
+    json_path : str, optional
+        Explicit path to the JSON file to load.  When supplied, app_file_path
+        is not used for path resolution.  Intended for tests so that a stable
+        test fixture file can be used instead of the live hexpansions.json.
     """
     import json     # pylint: disable=import-outside-toplevel
     types_list = []
@@ -96,7 +103,8 @@ def _load_hexpansion_types(app_file_path):
         warnings.append("hexpansion type support unavailable")
         print("H:Warning: hexpansion type support unavailable (HexpansionType import failed)")
         return types_list, warnings
-    json_path = "/" + app_file_path.rsplit("/", 1)[0] + "/" + _HEXPANSIONS_JSON
+    if json_path is None:
+        json_path = "/" + app_file_path.rsplit("/", 1)[0] + "/" + _HEXPANSIONS_JSON
     try:
         with open(json_path) as f:
             data = json.load(f)
@@ -122,12 +130,16 @@ def _load_hexpansion_types(app_file_path):
             print(f"H:Warning: {_HEXPANSIONS_JSON}: entry #{i} is not an object, skipped")
             continue
         try:
+            # Pass pid/vid/eeprom sizes directly to HexpansionType so that its
+            # _parse_int helper handles both plain integers and quoted hex strings
+            # (e.g. "0xCAFE") – JSON has no hex literal syntax so users must
+            # quote hex values as strings.
             types_list.append(HexpansionType(
-                pid=int(h["pid"]),
+                pid=h["pid"],
                 name=str(h["name"]),
-                vid=int(h.get("vid", 0xCAFE)),
-                eeprom_total_size=int(h.get("eeprom_total_size", 8192)),
-                eeprom_page_size=int(h.get("eeprom_page_size", 32)),
+                vid=h.get("vid", 0xCAFE),
+                eeprom_total_size=h.get("eeprom_total_size", 8192),
+                eeprom_page_size=h.get("eeprom_page_size", 32),
                 sub_type=str(h["sub_type"]) if h.get("sub_type") is not None else None,
                 app_mpy_name=str(h["app_mpy_name"]) if h.get("app_mpy_name") is not None else None,
                 app_mpy_version=int(h["app_mpy_version"]) if h.get("app_mpy_version") is not None else None,
@@ -220,7 +232,7 @@ class HexManagerApp(app.App):         # pylint: disable=no-member
         self._hexpansion_mgr   = HexpansionMgr(self, logging=self.logging)  if HexpansionMgr is not None else None
         self._settings_mgr     = SettingsMgr(self, logging=self.logging)    if SettingsMgr is not None else None
         self._serialise_mgr    = SerialiseMgr(self, logging=self.logging)   if SerialiseMgr is not None else None
- 
+
         # State -> manager dispatch tables (only include managers that exist)
         self._state_update_dispatch = {}
         self._state_draw_dispatch = {}
@@ -295,7 +307,7 @@ class HexManagerApp(app.App):         # pylint: disable=no-member
             # Toggle scroll mode on/off when "C" button is released
             self.scroll(not self.is_scroll)
 
- 
+
     @property
     def enable_hexpansion_mgr(self):
         """Whether the Hexpansion Manager is enabled, based on whether the manager is available.  Note that this does not necessarily mean that you have hexpansion hardware, as the manager can be enabled and used for managing settings related to hexpansions even if no hexpansion hardware is detected."""
@@ -434,7 +446,7 @@ class HexManagerApp(app.App):         # pylint: disable=no-member
             self.message = []
             self.message_colours = []
             self.message_type = None
-   
+
 
     def scroll_mode_enable(self, enable: bool):
         """Enable the potential for scroll mode to be toggled on and off by pressing the "C" button"""
@@ -543,7 +555,6 @@ class HexManagerApp(app.App):         # pylint: disable=no-member
         """Utility function to set the current state to the message display, and populate the message content and colours. The message_type can be used to indicate whether this is an 'error' (red) or 'warning' (green) message, which can affect both the display and the behaviour when the user acknowledges the message."""
         if self.logging:
             print(f"Showing message: '{msg_content}' with type {msg_type}")
-        self.animation_counter = 0
         self.message = msg_content
         self.message_colours = msg_colours
         self.message_type = msg_type
