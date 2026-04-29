@@ -97,7 +97,6 @@ def _load_hexpansion_types(app_file_path, json_path=None):
         test fixture file can be used instead of the live hexpansions.json.
     """
     import json     # pylint: disable=import-outside-toplevel
-    import os       # pylint: disable=import-outside-toplevel
     types_list = []
     warnings = []
     if HexpansionType is None:
@@ -105,8 +104,9 @@ def _load_hexpansion_types(app_file_path, json_path=None):
         print("H:Warning: hexpansion type support unavailable (HexpansionType import failed)")
         return types_list, warnings
     if json_path is None:
-        dir_part = os.path.dirname(app_file_path) or "."
-        json_path = os.path.join(dir_part, _HEXPANSIONS_JSON)
+        last_slash = max(app_file_path.rfind("/"), app_file_path.rfind("\\"))
+        dir_part = app_file_path[:last_slash] if last_slash >= 0 else "."
+        json_path = dir_part + "/" + _HEXPANSIONS_JSON
     try:
         with open(json_path, encoding="utf-8") as f:
             data = json.load(f)
