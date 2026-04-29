@@ -35,9 +35,9 @@ HexManager reads hexpansion type definitions from a JSON file named **`hexpansio
 
    ```json
    {
-     "pid": 4096,
+     "pid": "0x1234,
      "name": "MyHexpansion",
-     "vid": 51966,
+     "vid": "0xCAFE",
      "sub_type": "Rev A",
      "eeprom_total_size": 8192,
      "eeprom_page_size": 32,
@@ -57,13 +57,13 @@ HexManager reads hexpansion type definitions from a JSON file named **`hexpansio
    |---|---|---|---|
    | `pid` | ✅ | – | Product ID (0–65535). Must be unique within the same VID. |
    | `name` | ✅ | – | Display name shown on screen (keep ≤ 12 chars). |
-   | `vid` | No | 51966 (0xCAFE) | Vendor ID.  TeamRobotmad uses 52171 (0xCBCB). |
+   | `vid` | No | "0xCAFE" | Vendor ID. |
    | `eeprom_total_size` | No | 8192 | EEPROM size in **bytes** (e.g. 2048, 8192, 32768, 65536). |
    | `eeprom_page_size` | No | 32 | Write page size in **bytes** – check your EEPROM datasheet (e.g. 16, 32, 64, 128). |
    | `sub_type` | No | – | Short label for a specific variant, e.g. `"2 Motor"`. |
    | `app_mpy_name` | No | – | Filename of the compiled `.mpy` app to flash to the EEPROM.  The file is renamed to `app.mpy` when written so Badge OS auto-detects and runs it on insertion. |
-   | `app_mpy_version` | No | – | Integer version of the `.mpy` app (used to detect when an upgrade is needed). |
-   | `app_name` | No | – | Python class name of the hexpansion app, used to check if it is already running. |
+   | `app_mpy_version` | No | – | Version of the `.mpy` app (used to detect when an upgrade is needed). |
+   | `app_name` | No | – | Python class name of the hexpansion app, used to check if it is running. |
 
 4. **Prepare the app `.mpy` file** *(only needed if your hexpansion has its own badge app)*:
 
@@ -75,10 +75,10 @@ HexManager reads hexpansion type definitions from a JSON file named **`hexpansio
      pip install mpy-cross
      mpy-cross myhex.py         # produces myhex.mpy
      ```
-   - **The `.mpy` file must be placed in the `EEPROM` sub-folder of the HexManager app folder on the badge** (e.g. `/apps/HexManager/EEPROM/myhex.mpy`).  Upload it via the badge's USB file system, `mpremote`, or any other method you prefer.
+   - **The `.mpy` file must be placed in the `EEPROM` sub-folder of the HexManager app folder on the badge** (e.g. `/apps/TeamRobotmad_HexManager/EEPROM/myhex.mpy`).  Upload it via `mpremote`, or any other method you prefer.
    - When HexManager programs the EEPROM it copies the file and **renames it to `app.mpy`** on the hexpansion EEPROM, so that Badge OS automatically detects and runs it when the hexpansion is inserted into a badge slot.
 
-5. **Upload `hexpansions.json`** to the badge, replacing the existing file at `/apps/HexManager/hexpansions.json`.
+5. **Upload `hexpansions.json`** to the badge, replacing the existing file at `/apps/TeamRobotmad_HexManager/hexpansions.json`.
 
 6. **Restart the badge app** – HexManager will load the updated file on next launch.
    If the file is missing or contains a JSON error, a warning message will be shown on screen and printed to the serial console.
