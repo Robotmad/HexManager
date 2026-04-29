@@ -19,75 +19,75 @@
       "sub_type": "OPTIONAL. Short label for this specific variant, e.g. '2 Motor'. Shown to the user alongside the name.",
       "app_mpy_name": "OPTIONAL. Filename of the compiled .mpy app to write to the hexpansion EEPROM, e.g. 'myhex.mpy'. File must exist in the EEPROM sub-folder of the HexManager app folder on the badge (e.g. /apps/HexManager/EEPROM/myhex.mpy). NOTE: the file is renamed to 'app.mpy' when programmed onto the EEPROM so that Badge OS automatically detects and runs it when the hexpansion is inserted into a badge slot. NOTE: currently only a single .mpy file is supported.",
       "app_mpy_version": "OPTIONAL. Integer version number of the .mpy app (e.g. 1, 2, 7). Used to detect when an upgrade is needed.",
-      "app_name": "OPTIONAL. Python class name of the hexpansion app, e.g. 'MyHexApp'. Used to check if the correct app is already running.",
-    },
+      "app_name": "OPTIONAL. Python class name of the hexpansion app, e.g. 'MyHexApp'. Used to check if the correct app is already running."
+    }
   },
   "hexpansions": [
     {
-      "pid": 52171, "vid": 51966, "name": "HexDrive",
+      "pid": "0xCBCB", "vid": "0xCAFE", "name": "HexDrive",
       "app_mpy_name": "hexdrive.mpy", "app_mpy_version": 7, "app_name": "HexDriveApp",
       "sub_type": "Uncommitted", "motors": 2, "servos": 4
     },
     {
-      "pid": 52170, "vid": 51966, "name": "HexDrive",
+      "pid": "0xCBCA", "vid": "0xCAFE", "name": "HexDrive",
       "app_mpy_name": "hexdrive.mpy", "app_mpy_version": 7, "app_name": "HexDriveApp",
       "sub_type": "2 Motor", "motors": 2
     },
     {
-      "pid": 52172, "vid": 51966, "name": "HexDrive",
+      "pid": "0xCBCC", "vid": "0xCAFE", "name": "HexDrive",
       "app_mpy_name": "hexdrive.mpy", "app_mpy_version": 7, "app_name": "HexDriveApp",
       "sub_type": "4 Servo", "servos": 4
     },
     {
-      "pid": 52173, "vid": 51966, "name": "HexDrive",
+      "pid": "0xCBCD", "vid": "0xCAFE", "name": "HexDrive",
       "app_mpy_name": "hexdrive.mpy", "app_mpy_version": 7, "app_name": "HexDriveApp",
       "sub_type": "1 Mot 2 Srvo", "motors": 1, "servos": 2
     },
     {
-      "pid": 256, "vid": 52171, "name": "HexSense",
+      "pid": "0x0100", "vid": "0xCBCB", "name": "HexSense",
       "eeprom_total_size": 65536, "eeprom_page_size": 128,
       "sub_type": "2 Line Sensors"
     },
     {
-      "pid": 512, "vid": 52171, "name": "HexDriveV2",
+      "pid": "0x0200", "vid": "0xCBCB", "name": "HexDriveV2",
       "eeprom_total_size": 32768, "eeprom_page_size": 64,
       "app_mpy_name": "hexdrive.mpy", "app_mpy_version": 7, "app_name": "HexDriveApp",
       "sub_type": "Uncommitted"
     },
     {
-      "pid": 513, "vid": 52171, "name": "HexDriveV2",
+      "pid": "0x0201", "vid": "0xCBCB", "name": "HexDriveV2",
       "eeprom_total_size": 32768, "eeprom_page_size": 64,
       "app_mpy_name": "hexdrive.mpy", "app_mpy_version": 7, "app_name": "HexDriveApp",
       "sub_type": "2 Motor", "motors": 2
     },
     {
-      "pid": 514, "vid": 52171, "name": "HexDriveV2",
+      "pid": "0x0202", "vid": "0xCBCB", "name": "HexDriveV2",
       "eeprom_total_size": 32768, "eeprom_page_size": 64,
       "app_mpy_name": "hexdrive.mpy", "app_mpy_version": 7, "app_name": "HexDriveApp",
       "sub_type": "2 Servo", "servos": 2
     },
     {
-      "pid": 768, "vid": 52171, "name": "HexTest",
+      "pid": "0x0300", "vid": "0xCBCB", "name": "HexTest",
       "eeprom_total_size": 65536, "eeprom_page_size": 128
     },
     {
-      "pid": 1024, "vid": 52171, "name": "HexDiag",
+      "pid": "0x0400", "vid": "0xCBCB", "name": "HexDiag",
       "eeprom_total_size": 65536, "eeprom_page_size": 128
     },
     {
-      "pid": 4757, "vid": 51966, "name": "GPS",
+      "pid": "0x1295", "vid": "0xCAFE", "name": "GPS",
       "eeprom_total_size": 2048, "eeprom_page_size": 16,
       "app_mpy_name": "gps.mpy", "app_mpy_version": 1, "app_name": "GPSApp",
       "sub_type": "L80K"
     },
     {
       "_comment": "Flopagon - small 2048-byte EEPROM. EEPROM too small for an app.",
-      "pid": 53596, "vid": 51966, "name": "Flopagon",
+      "pid": "0xD15C", "vid": "0xCAFE", "name": "Flopagon",
       "eeprom_total_size": 2048, "eeprom_page_size": 16
     },
     {
       "_comment": "Club Mate hexpansion.",
-      "pid": 51967, "vid": 51966, "name": "Club Mate",
+      "pid": "0xCAFF", "vid": "0xCAFE", "name": "Club Mate",
       "eeprom_total_size": 8192, "eeprom_page_size": 32,
       "app_mpy_name": "caffeine.mpy", "app_name": "CaffeineJitter"
     }

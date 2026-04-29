@@ -31,10 +31,29 @@ def test_hexdrive_app_init(port):
     HexDriveApp(config)
 
 def test_app_versions_match():
-    import sim.apps.HexManager.app as HexManager
-    import sim.apps.HexManager.EEPROM.hexdrive as HexDrive
-    assert HexManager.HEXDRIVE_APP_VERSION == HexDrive.VERSION
-    # above test should always pass since HexManager.HEXDRIVE_APP_VERSION is imported from HexDrive.VERSION, but this test will at least catch if someone accidentally changes one without the other.
+    """Verify that the HexDrive app_mpy_version recorded in hexpansions.json matches
+    the VERSION constant in EEPROM/hexdrive.py.
+
+    hexpansions.json is the authoritative record of which .mpy version should be
+    programmed onto the EEPROM.  If someone bumps hexdrive.py VERSION without
+    updating hexpansions.json (or vice-versa) this test will catch the mismatch.
+    """
+    import json
+    import os
+    from sim.apps.HexManager.EEPROM.hexdrive import VERSION as HEXDRIVE_VERSION
+
+    json_path = os.path.join(os.path.dirname(__file__), "..", "hexpansions.json")
+    with open(json_path) as f:
+        data = json.load(f)
+
+    hexdrive_entries = [h for h in data["hexpansions"]
+                        if h.get("app_name") == "HexDriveApp" and h.get("app_mpy_version") is not None]
+    assert hexdrive_entries, "No HexDriveApp entries with app_mpy_version found in hexpansions.json"
+    for entry in hexdrive_entries:
+        assert entry["app_mpy_version"] == HEXDRIVE_VERSION, (
+            f"hexpansions.json entry pid={entry['pid']} has app_mpy_version="
+            f"{entry['app_mpy_version']} but EEPROM/hexdrive.py VERSION={HEXDRIVE_VERSION}"
+        )
 
 def test_hexdrive_type_pids_consistent():
     """Verify HexDriveType PIDs in hexdrive.py are consistent with HexpansionType PIDs in app.py.
@@ -320,3 +339,74 @@ class TestLoadHexpansionTypesFromJson:
             os.unlink(f.name)
         assert types == []
         assert any("parse error" in w for w in warnings)
+
+
+# =====================================================================
+#  app_mpy_version=None means "don't check version"
+# =====================================================================
+
+class TestAppMpyVersionNone:
+    """When app_mpy_version is None, _check_hexpansion_app_on_port must treat
+    any running app as current (APP_OK) rather than always flagging it as old.
+
+    The test exercises the method directly, wiring up a minimal fake app
+    instance and a HexpansionType whose app_mpy_version is None.
+    """
+
+    def setup_method(self):
+        from tests.conftest import _ensure_sim_initialized
+        _ensure_sim_initialized()
+        from sim.apps.HexManager.hexpansion_mgr import (
+            HexpansionMgr, HexpansionType,
+            _HEXPANSION_STATE_RECOGNISED_APP_OK,
+            _HEXPANSION_STATE_RECOGNISED_OLD_APP,
+        )
+        from sim.apps.HexManager import HexManagerApp
+        self.HexpansionMgr = HexpansionMgr
+        self.HexpansionType = HexpansionType
+        self.APP_OK = _HEXPANSION_STATE_RECOGNISED_APP_OK
+        self.OLD_APP = _HEXPANSION_STATE_RECOGNISED_OLD_APP
+        self.app = HexManagerApp()
+
+    def _make_mgr_with_fake_hexpansion_app(self, app_mpy_version, running_version):
+        """Return a HexpansionMgr whose _find_hexpansion_app returns a stub
+        reporting *running_version*, pointed at a HexpansionType with
+        *app_mpy_version*.  Port 1 is used throughout.
+        """
+        from unittest.mock import patch
+
+        class _FakeHexApp:
+            def get_version(self):
+                return running_version
+
+        fake_app_instance = _FakeHexApp()
+        hex_type = self.HexpansionType(pid=0xCBCA, name="TestHex",
+                                       app_mpy_version=app_mpy_version,
+                                       app_name="TestApp")
+        self.app.HEXPANSION_TYPES = [hex_type]
+
+        mgr = self.HexpansionMgr(self.app)
+        # Patch _find_hexpansion_app so it returns our stub without needing
+        # the scheduler or real hardware.
+        with patch.object(mgr, "_find_hexpansion_app", return_value=fake_app_instance):
+            mgr._check_hexpansion_app_on_port(1, 0)
+
+        return mgr
+
+    def test_none_version_not_checked_app_ok(self):
+        """app_mpy_version=None → APP_OK regardless of running version."""
+        mgr = self._make_mgr_with_fake_hexpansion_app(
+            app_mpy_version=None, running_version=99)
+        assert mgr._hexpansion_state_by_slot[0] == self.APP_OK
+
+    def test_matching_version_is_app_ok(self):
+        """When versions match, state must be APP_OK."""
+        mgr = self._make_mgr_with_fake_hexpansion_app(
+            app_mpy_version=7, running_version=7)
+        assert mgr._hexpansion_state_by_slot[0] == self.APP_OK
+
+    def test_mismatched_version_is_old_app(self):
+        """When versions differ, state must be RECOGNISED_OLD_APP."""
+        mgr = self._make_mgr_with_fake_hexpansion_app(
+            app_mpy_version=7, running_version=6)
+        assert mgr._hexpansion_state_by_slot[0] == self.OLD_APP
