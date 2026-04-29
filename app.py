@@ -132,8 +132,6 @@ def _load_hexpansion_types(app_file_path):
                 app_mpy_name=str(h["app_mpy_name"]) if h.get("app_mpy_name") is not None else None,
                 app_mpy_version=int(h["app_mpy_version"]) if h.get("app_mpy_version") is not None else None,
                 app_name=str(h["app_name"]) if h.get("app_name") is not None else None,
-                motors=int(h.get("motors", 0)),
-                servos=int(h.get("servos", 0)),
             ))
         except (KeyError, TypeError, ValueError) as e:
             print(f"H:Warning: {_HEXPANSIONS_JSON}: entry #{i} error ({e}), skipped")
