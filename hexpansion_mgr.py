@@ -938,7 +938,10 @@ class HexpansionMgr:
                 except Exception as ee:  # pylint: disable=broad-except
                     print(f"H:Error getting app version for hexpansion on port {port}: {e}, {ee}")
                     version = None
-            if version != app.HEXPANSION_TYPES[type_index].app_mpy_version:
+            if app.HEXPANSION_TYPES[type_index].app_mpy_version is None:
+                # No expected version recorded for this type – treat any running app as current.
+                self._hexpansion_state_by_slot[port - 1] = _HEXPANSION_STATE_RECOGNISED_APP_OK
+            elif version != app.HEXPANSION_TYPES[type_index].app_mpy_version:
                 if self._logging:
                     app_version = getattr(hexpansion_app, "version", version)
                     print(f"H:{app.HEXPANSION_TYPES[type_index].name} app on port {port} has version {app_version}, expected {app.HEXPANSION_TYPES[type_index].app_mpy_version}")
