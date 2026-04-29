@@ -15,8 +15,10 @@ from system.scheduler.events import (RequestForegroundPopEvent,
                                      RequestStopAppEvent)
 import app
 
-from .EEPROM.hexdrive import VERSION as HEXDRIVE_APP_VERSION
-from .EEPROM.gps import VERSION as GPS_APP_VERSION
+from .EEPROM.hexdrive import VERSION as HEXDRIVE_APP_VERSION  # kept for backward compatibility / test access
+from .EEPROM.gps import VERSION as GPS_APP_VERSION             # kept for backward compatibility / test access
+
+_HEXPANSIONS_JSON = "hexpansions.json"  # Name of the hexpansion type definitions file
 
 
 _SETTINGS_NAME_PREFIX = "hexmanager."  # Prefix for settings keys in EEPROM
@@ -79,6 +81,64 @@ def _try_import(module_name, *attr_names):
 HexpansionMgr, HexpansionType, _hexpansion_init_settings = _try_import('hexpansion_mgr', 'HexpansionMgr', 'HexpansionType', 'init_settings')
 SerialiseMgr,                  _serialise_init_settings  = _try_import('serialise_mgr',  'SerialiseMgr',                    'init_settings')
 SettingsMgr, MySetting                                   = _try_import('settings_mgr',   'SettingsMgr', 'MySetting')
+
+
+def _load_hexpansion_types(app_file_path):
+    """Load hexpansion type definitions from hexpansions.json next to this app file.
+
+    Returns (types_list, warnings_list).  On any error the types_list will be
+    empty and warnings_list will contain a short human-readable description.
+    """
+    import json     # pylint: disable=import-outside-toplevel
+    types_list = []
+    warnings = []
+    if HexpansionType is None:
+        warnings.append("hexpansion type support unavailable")
+        print("H:Warning: hexpansion type support unavailable (HexpansionType import failed)")
+        return types_list, warnings
+    json_path = "/" + app_file_path.rsplit("/", 1)[0] + "/" + _HEXPANSIONS_JSON
+    try:
+        with open(json_path) as f:
+            data = json.load(f)
+    except OSError:
+        warnings.append(f"{_HEXPANSIONS_JSON} not found")
+        print(f"H:Warning: {_HEXPANSIONS_JSON} not found at {json_path}")
+        return types_list, warnings
+    except ValueError as e:
+        warnings.append(f"{_HEXPANSIONS_JSON} parse error")
+        print(f"H:Warning: {_HEXPANSIONS_JSON} JSON parse error: {e}")
+        return types_list, warnings
+    except Exception as e:      # pylint: disable=broad-except
+        warnings.append(f"{_HEXPANSIONS_JSON} load error")
+        print(f"H:Warning: {_HEXPANSIONS_JSON} load error: {e}")
+        return types_list, warnings
+    hexpansions = data.get("hexpansions", [])
+    if not isinstance(hexpansions, list):
+        warnings.append(f"{_HEXPANSIONS_JSON}: 'hexpansions' must be a list")
+        print(f"H:Warning: {_HEXPANSIONS_JSON}: 'hexpansions' key is not a list")
+        return types_list, warnings
+    for i, h in enumerate(hexpansions):
+        if not isinstance(h, dict):
+            print(f"H:Warning: {_HEXPANSIONS_JSON}: entry #{i} is not an object, skipped")
+            continue
+        try:
+            types_list.append(HexpansionType(
+                pid=int(h["pid"]),
+                name=str(h["name"]),
+                vid=int(h.get("vid", 0xCAFE)),
+                eeprom_total_size=int(h.get("eeprom_total_size", 8192)),
+                eeprom_page_size=int(h.get("eeprom_page_size", 32)),
+                sub_type=str(h["sub_type"]) if h.get("sub_type") is not None else None,
+                app_mpy_name=str(h["app_mpy_name"]) if h.get("app_mpy_name") is not None else None,
+                app_mpy_version=int(h["app_mpy_version"]) if h.get("app_mpy_version") is not None else None,
+                app_name=str(h["app_name"]) if h.get("app_name") is not None else None,
+            ))
+        except (KeyError, TypeError, ValueError) as e:
+            print(f"H:Warning: {_HEXPANSIONS_JSON}: entry #{i} error ({e}), skipped")
+    if not types_list and not warnings:
+        warnings.append(f"{_HEXPANSIONS_JSON}: no valid entries found")
+        print(f"H:Warning: {_HEXPANSIONS_JSON}: no valid hexpansion entries found")
+    return types_list, warnings
 
 
 class HexManagerApp(app.App):         # pylint: disable=no-member
@@ -145,22 +205,13 @@ class HexManagerApp(app.App):         # pylint: disable=no-member
             self.special_chars = {'up': "^", 'left': "<", 'right': ">"}
 
 
-        # If vid is not specified then default is the UHB-IF uncontrolled VID 0xCAFE
-        #                                       pid      name         vid          eeprom total size        eeprom page size      app mpy name                 app mpy version                       app name                sub_type
-        assert HexpansionType is not None
-        self.HEXPANSION_TYPES = [HexpansionType(0xCBCB, "HexDrive",                                                               app_mpy_name="hexdrive.mpy", app_mpy_version=HEXDRIVE_APP_VERSION, app_name="HexDriveApp", sub_type="Uncommitted" ),
-                                 HexpansionType(0xCBCA, "HexDrive",                                                               app_mpy_name="hexdrive.mpy", app_mpy_version=HEXDRIVE_APP_VERSION, app_name="HexDriveApp", sub_type="2 Motor" ),
-                                 HexpansionType(0xCBCC, "HexDrive",                                                               app_mpy_name="hexdrive.mpy", app_mpy_version=HEXDRIVE_APP_VERSION, app_name="HexDriveApp", sub_type="4 Servo" ),
-                                 HexpansionType(0xCBCD, "HexDrive",                                                               app_mpy_name="hexdrive.mpy", app_mpy_version=HEXDRIVE_APP_VERSION, app_name="HexDriveApp", sub_type="1 Mot 2 Srvo" ),
-                                 HexpansionType(0x0100, "HexSense",    vid=0xCBCB, eeprom_total_size=65536, eeprom_page_size=128,                                                                                            sub_type="2 Line Sensors"),
-                                 HexpansionType(0x0200, "HexDriveV2",  vid=0xCBCB, eeprom_total_size=32768, eeprom_page_size= 64, app_mpy_name="hexdrive.mpy", app_mpy_version=HEXDRIVE_APP_VERSION, app_name="HexDriveApp", sub_type="Uncommitted" ),
-                                 HexpansionType(0x0201, "HexDriveV2",  vid=0xCBCB, eeprom_total_size=32768, eeprom_page_size= 64, app_mpy_name="hexdrive.mpy", app_mpy_version=HEXDRIVE_APP_VERSION, app_name="HexDriveApp", sub_type="2 Motor" ),
-                                 HexpansionType(0x0202, "HexDriveV2",  vid=0xCBCB, eeprom_total_size=32768, eeprom_page_size= 64, app_mpy_name="hexdrive.mpy", app_mpy_version=HEXDRIVE_APP_VERSION, app_name="HexDriveApp", sub_type="2 Servo" ),
-                                 HexpansionType(0x0300, "HexTest",     vid=0xCBCB, eeprom_total_size=65536, eeprom_page_size=128),
-                                 HexpansionType(0x0400, "HexDiag",     vid=0xCBCB, eeprom_total_size=65536, eeprom_page_size=128),
-                                 HexpansionType(0x1295, "GPS",                     eeprom_total_size= 2048, eeprom_page_size= 16, app_mpy_name="gps.mpy",      app_mpy_version=GPS_APP_VERSION,      app_name="GPSApp",      sub_type="L80K"),
-                                 HexpansionType(0xD15C, "Flopagon",                eeprom_total_size= 2048, eeprom_page_size= 16), # EEPROM too small for the app
-                                 HexpansionType(0xCAFF, "Club Mate",               eeprom_total_size= 8192, eeprom_page_size= 32, app_mpy_name="caffeine.mpy", app_name="CaffeineJitter")]
+        # Load hexpansion type definitions from hexpansions.json
+        self.HEXPANSION_TYPES, self._startup_warnings = _load_hexpansion_types(__file__)
+        if self._startup_warnings:
+            for w in self._startup_warnings:
+                print(f"H:Warning: {w}")
+        elif self.logging:
+            print(f"H:{len(self.HEXPANSION_TYPES)} hexpansion types loaded from {_HEXPANSIONS_JSON}")
 
         self.hexpansion_update_required: bool = False # flag from async to main loop
         self.serialise_active = False
@@ -308,6 +359,15 @@ class HexManagerApp(app.App):         # pylint: disable=no-member
 
 
     def _update_main_application(self, delta: int):
+        # Show any startup warnings once (e.g. hexpansions.json not found or parse error)
+        if self._startup_warnings:
+            warnings = self._startup_warnings
+            self._startup_warnings = []
+            w = warnings[0]
+            if w.startswith(_HEXPANSIONS_JSON):
+                w = w[len(_HEXPANSIONS_JSON):].strip(": ")
+            self.show_message([_HEXPANSIONS_JSON, "warning:", w], [(1, 0.6, 0)] * 3, msg_type="warning")
+            return
         if self.current_state == STATE_MENU:
             if self.current_menu is None:
                 self.set_menu()
@@ -591,7 +651,9 @@ class HexManagerApp(app.App):         # pylint: disable=no-member
             self.set_menu(None)
             self.button_states.clear()
             # Show a message to the user about the current version of the app, and some basic instructions on how to use it, with a confirm button to acknowledge and return to the menu, and a cancel button to exit the app.
-            self.show_message(["HexManager App",f"V{self.app_version}","By RobotMad"], msg_colours=[(1,1,1),(1,1,0),(0,1,1)], msg_type="info")
+            n_types = len(self.HEXPANSION_TYPES)
+            self.show_message(["HexManager App", f"V{self.app_version}", f"{n_types} types known", "By RobotMad"],
+                              msg_colours=[(1,1,1),(1,1,0),(0,1,1),(0,1,1)], msg_type="info")
         elif item == MAIN_MENU_ITEMS[MENU_ITEM_EXIT]:       # Exit
             if self._hexpansion_mgr is not None:
                 self._hexpansion_mgr.unregister_events()
