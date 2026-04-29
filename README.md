@@ -63,8 +63,6 @@ HexManager reads hexpansion type definitions from a JSON file named **`hexpansio
    | `app_mpy_name` | No | – | Filename of the compiled `.mpy` app to flash to the EEPROM. |
    | `app_mpy_version` | No | – | Integer version of the `.mpy` app (used to detect when an upgrade is needed). |
    | `app_name` | No | – | Python class name of the hexpansion app, used to check if it is already running. |
-   | `motors` | No | 0 | Number of motor channels (informational metadata). |
-   | `servos` | No | 0 | Number of servo channels (informational metadata). |
 
 4. **Prepare the app `.mpy` file** *(only needed if your hexpansion has its own badge app)*:
 
