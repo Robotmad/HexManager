@@ -1263,7 +1263,8 @@ class HexpansionType:
     def __init__(self, pid: int, name: str, vid: int =0xCAFE,
                  eeprom_page_size: int =_DEFAULT_EEPROM_PAGE_SIZE, eeprom_total_size: int =_DEFAULT_EEPROM_TOTAL_SIZE,
                  sub_type: str | None =None,
-                 app_mpy_name: str | None =None, app_mpy_version: str | None =None, app_name: str | None =None):
+                 app_mpy_name: str | None =None, app_mpy_version: str | None =None, app_name: str | None =None,
+                 motors: int =0, servos: int =0):
         self.vid: int = vid
         self.pid: int = pid
         self.name: str = name
@@ -1273,3 +1274,5 @@ class HexpansionType:
         self.app_mpy_name: str | None = app_mpy_name
         self.app_mpy_version: str | None = app_mpy_version
         self.app_name: str | None = app_name
+        self.motors: int = motors
+        self.servos: int = servos

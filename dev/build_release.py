@@ -20,6 +20,7 @@ files_to_keep = {
     Path("app.py"),
     Path("tildagon.toml"),
     Path("metadata.json"),
+    Path("hexpansions.json"),
 }
 files_to_keep.update({Path(f"{module}.mpy") for module in RUNTIME_MODULES})
 
