@@ -95,90 +95,15 @@ If you have issues with any hexpansion fitted with an EEPROM, e.g. a software in
 3) Press "Ctrl" & "C" simultaneously. i.e. "Ctrl-C" 
 4) You should now be presented with a prompt ">>>" which is called the python REPL. At this type in the following lines (the HexDrive EEPROM is 8kbytes so requires 16 bit addressing, hence the ```addrsize=16``` other hexpansions may use smaller EEPROMS where this is not required):
    ```
-		from machine import I2C
-		i = I2C(1)
-		i.writeto_mem(0x50, 0, bytes([0xFF]*8192), addrsize=16)
+    from machine import I2C
+    i = I2C(1)
+    i.writeto_mem(0x50, 0, bytes([0xFF]*8192), addrsize=16)
    ```
-6) As long as there is no Traceback then this worked. But you can check by reading back the EEPROM contents with:
+5) As long as there is no Traceback then this worked. But you can check by reading back the EEPROM contents with:
    ```
-		i.readfrom_mem(0x50,0,32,addrsize=16)
+    i.readfrom_mem(0x50,0,32,addrsize=16)
    ```
-	You should get a response which confirms that the first 32 bytes have been reset back to 0xFF:
-```
-    b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff'
-```
-
-
-### Developers setup
-This is to help develop the HexManager application using the Badge simulator.
-
-Windows:
-```
-git clone https://github.com/TeamRobotmad/HexManager.git
-cd HexManager
-powershell -ExecutionPolicy Bypass -File .\dev\setup_dev_env.ps1
-```
-
-WSL (recommended for simulator tests):
-```
-git clone https://github.com/TeamRobotmad/HexManager.git
-cd HexManager
-sh ./dev/setup_wsl_dev_env.sh
-```
-
-The WSL helper uses `uv` to provision Python 3.10 and installs both the local dev requirements and the simulator requirements. This is recommended because the published `wasmer` wheels used by the simulator currently load reliably there.
-
-Linux/macOS:
-```
-git clone https://github.com/TeamRobotmad/HexManager.git
-cd HexManager
-sh ./dev/setup_dev_env.sh
-```
-
-If you prefer to run commands manually:
-```
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -r .\dev\dev_requirements.txt
-```
-
-
-### Running tests
-Tests must be run from the `tests/` directory:
-```
-cd tests
-python -m pytest test_smoke.py test_autotune.py -v
-```
-
-If HexManager is checked out inside the `badge-2024-software` repo, set `PYTHONPATH` to the parent repo root so `sim.run` can be imported. For the WSL helper's default environment this looks like:
-```
-cd tests
-PYTHONPATH=/path/to/badge-2024-software ../.venv-wsl310/bin/python -m pytest test_smoke.py test_autotune.py -v
-```
-
-### Best practise
-Run `isort` on in-app python files. Check `pylint` for linting errors.
-
-
-### Contribution guidelines
-
-
-If you have issues with any hexpansion fitted with an EEPROM, e.g. a software incompatibility with a particular badge software version, you can reset the EEPROM back to blank as follows:
-1) Plug in the hexpansion to Slot 1 (will work with any slot but you have to change the "1" below to the slot number.
-2) Connect your favourite Terminal program to the COM port presented by the Badge over USB.
-3) Press "Ctrl" & "C" simultaneously. i.e. "Ctrl-C" 
-4) You should now be presented with a prompt ">>>" which is called the python REPL. At this type in the following lines (the HexDrive EEPROM is 8kbytes so requires 16 bit addressing, hence the ```addrsize=16``` other hexpansions may use smaller EEPROMS where this is not required):
-   ```
-		from machine import I2C
-		i = I2C(1)
-		i.writeto_mem(0x50, 0, bytes([0xFF]*8192), addrsize=16)
-   ```
-6) As long as there is no Traceback then this worked. But you can check by reading back the EEPROM contents with:
-   ```
-		i.readfrom_mem(0x50,0,32,addrsize=16)
-   ```
-	You should get a response which confirms that the first 32 bytes have been reset back to 0xFF:
+   You should get a response which confirms that the first 32 bytes have been reset back to 0xFF:
 ```
     b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff'
 ```
