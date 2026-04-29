@@ -665,8 +665,8 @@ class HexManagerApp(app.App):         # pylint: disable=no-member
             self.button_states.clear()
             # Show a message to the user about the current version of the app, and some basic instructions on how to use it, with a confirm button to acknowledge and return to the menu, and a cancel button to exit the app.
             n_types = len(self.HEXPANSION_TYPES)
-            self.show_message(["HexManager App", f"V{self.app_version}", f"{n_types} types known", "By RobotMad"],
-                              msg_colours=[(1,1,1),(1,1,0),(0,1,1),(0,1,1)], msg_type="info")
+            self.show_message(["HexManager", f"V{self.app_version}", f"{n_types} types known","", "By RobotMad"],
+                              msg_colours=[(1,1,1),(1,1,0),(0,1,1),(1,1,1,),(0,1,0)], msg_type="info")
         elif item == MAIN_MENU_ITEMS[MENU_ITEM_EXIT]:       # Exit
             if self._hexpansion_mgr is not None:
                 self._hexpansion_mgr.unregister_events()
