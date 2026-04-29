@@ -76,3 +76,60 @@ def test_hexdrive_type_pids_consistent():
             f"HexpansionType={ht.servos}, HexDriveType={hdt.servos}"
         )
 
+
+# =====================================================================
+#  HexpansionType hex-string constructor acceptance
+# =====================================================================
+
+class TestHexpansionTypeHexStrings:
+    """Verify that HexpansionType accepts hex strings as well as plain ints
+    for pid, vid, eeprom_total_size and eeprom_page_size.
+
+    JSON has no hex-literal syntax, so callers sourcing configuration from
+    JSON files must be able to pass quoted strings such as ``"0xCAFE"``.
+    """
+
+    def setup_method(self):
+        import sim.run  # noqa: F401
+        from sim.apps.HexManager.hexpansion_mgr import HexpansionType
+        self.HexpansionType = HexpansionType
+
+    def test_int_args_unchanged(self):
+        """Sanity-check: plain int arguments still work."""
+        ht = self.HexpansionType(0xCBCA, "HexDrive")
+        assert ht.pid == 0xCBCA
+        assert ht.vid == 0xCAFE  # default
+
+    def test_hex_string_pid(self):
+        ht = self.HexpansionType("0xCBCA", "HexDrive")
+        assert ht.pid == 0xCBCA
+
+    def test_hex_string_vid(self):
+        ht = self.HexpansionType(0xCBCA, "HexDrive", vid="0xCAFE")
+        assert ht.vid == 0xCAFE
+
+    def test_hex_string_eeprom_total_size(self):
+        ht = self.HexpansionType(0xCBCA, "HexDrive", eeprom_total_size="0x10000")
+        assert ht.eeprom_total_size == 65536
+
+    def test_hex_string_eeprom_page_size(self):
+        ht = self.HexpansionType(0xCBCA, "HexDrive", eeprom_page_size="0x80")
+        assert ht.eeprom_page_size == 128
+
+    def test_decimal_string_pid(self):
+        ht = self.HexpansionType("52170", "HexDrive")
+        assert ht.pid == 0xCBCA
+
+    def test_all_hex_strings(self):
+        """All four numeric fields supplied as hex strings."""
+        ht = self.HexpansionType("0xCBCA", "HexDrive", vid="0xCAFE",
+                                 eeprom_total_size="0x2000", eeprom_page_size="0x20")
+        assert ht.pid == 0xCBCA
+        assert ht.vid == 0xCAFE
+        assert ht.eeprom_total_size == 0x2000
+        assert ht.eeprom_page_size == 0x20
+
+    def test_invalid_string_raises(self):
+        with pytest.raises(ValueError):
+            self.HexpansionType("not_a_number", "HexDrive")
+

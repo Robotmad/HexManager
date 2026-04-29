@@ -504,7 +504,7 @@ class HexpansionMgr:
             app.refresh = True
         elif app.button_states.get(BUTTON_TYPES["RIGHT"]):
             app.button_states.clear()
-            # no action 
+            # no action
             app.refresh = True
 
 
@@ -1246,30 +1246,49 @@ class HexpansionMgr:
 
 # ---- Hexpansion type descriptor -------------------------------------------
 
+def _parse_int(value: int | str) -> int:
+    """Convert *value* to int, accepting both plain ints and hex/decimal strings.
+
+    Hex strings (e.g. ``"0xCAFE"``) are handled by ``int(value, 0)``, which
+    also accepts plain decimal strings (e.g. ``"256"``).  This allows callers
+    that source their configuration from JSON – which has no hex literal syntax
+    – to pass values as quoted strings such as ``"0xCAFE"`` while still
+    accepting bare Python integer literals.
+    """
+    if isinstance(value, str):
+        return int(value, 0)
+    return int(value)
+
+
 class HexpansionType:
     """Descriptor for known hexpansion types, used for detection and EEPROM programming.
 
     Parameters
     ----------
-        pid: the PID value to identify the hexpansion type from its EEPROM header
+        pid: the PID value to identify the hexpansion type from its EEPROM header.
+            May be supplied as an int (``0xCBCA``) or a hex/decimal string
+            (``"0xCBCA"``).
         name: human-friendly name of the hexpansion type (e.g. "HexDrive")
-        vid: the VID value to identify the hexpansion type from its EEPROM header (default 0xCAFE)
+        vid: the VID value to identify the hexpansion type from its EEPROM header
+            (default 0xCAFE).  Accepts int or hex/decimal string.
+        eeprom_page_size: EEPROM page size in bytes.  Accepts int or hex/decimal string.
+        eeprom_total_size: total EEPROM capacity in bytes.  Accepts int or hex/decimal string.
         motors, servos, sensors: the capabilities of this hexpansion type, used to configure the app when detected
         sub_type: a human-friendly string describing the specific variant of this hexpansion type
         app_mpy_name: the filename of the .mpy to copy to the hexpansion EEPROM for this type (if any)
         app_mpy_version: the version string to report for the .mpy copied to the hexpansion EEPROM for this type (if any)
         app_name: the name of the App class to look for when checking if a detected hexpansion's app is running (if any)
     """
-    def __init__(self, pid: int, name: str, vid: int =0xCAFE,
-                 eeprom_page_size: int =_DEFAULT_EEPROM_PAGE_SIZE, eeprom_total_size: int =_DEFAULT_EEPROM_TOTAL_SIZE,
-                 sub_type: str | None =None,
-                 app_mpy_name: str | None =None, app_mpy_version: str | None =None, app_name: str | None =None,
-                 motors: int =0, servos: int =0):
-        self.vid: int = vid
-        self.pid: int = pid
+    def __init__(self, pid: int | str, name: str, vid: int | str = 0xCAFE,
+                 eeprom_page_size: int | str = _DEFAULT_EEPROM_PAGE_SIZE,
+                 eeprom_total_size: int | str = _DEFAULT_EEPROM_TOTAL_SIZE,
+                 sub_type: str | None = None,
+                 app_mpy_name: str | None = None, app_mpy_version: str | None = None, app_name: str | None = None):
+        self.vid: int = _parse_int(vid)
+        self.pid: int = _parse_int(pid)
         self.name: str = name
-        self.eeprom_page_size: int = eeprom_page_size
-        self.eeprom_total_size: int = eeprom_total_size
+        self.eeprom_page_size: int = _parse_int(eeprom_page_size)
+        self.eeprom_total_size: int = _parse_int(eeprom_total_size)
         self.sub_type: str | None = sub_type
         self.app_mpy_name: str | None = app_mpy_name
         self.app_mpy_version: str | None = app_mpy_version
