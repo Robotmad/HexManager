@@ -37,6 +37,7 @@ test raises.  Specific HexDrive sub-types are configured through
 """
 
 import contextlib
+import asyncio
 import sys
 
 from unittest.mock import patch
@@ -50,7 +51,37 @@ sys.path.append("../../../")
 #  Lazy simulator initialisation
 # ---------------------------------------------------------------------------
 
-from testutils import ensure_sim_initialized as _ensure_sim_initialized
+_sim_initialized = False
+
+
+def _ensure_sim_initialized():
+    """Import ``sim.run`` exactly once to set up simulator shims.
+
+    This must **not** be called at module level – only from inside fixtures
+    or test functions – because ``sim/run.py`` replaces ``sys.meta_path``
+    and would prevent pytest from finding ``faulthandler`` during its own
+    ``pytest_configure`` phase.
+    """
+    global _sim_initialized
+    if not _sim_initialized:
+        import sim.run  # noqa: F401 – side effect: configures sys.path & fakes
+        _sim_initialized = True
+
+
+@pytest.fixture(autouse=True)
+def event_loop():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        yield loop
+    finally:
+        pending = [task for task in asyncio.all_tasks(loop) if not task.done()]
+        for task in pending:
+            task.cancel()
+        if pending:
+            loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+        loop.close()
+        asyncio.set_event_loop(None)
 
 
 # ---------------------------------------------------------------------------
