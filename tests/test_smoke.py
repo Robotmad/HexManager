@@ -103,8 +103,8 @@ class TestHexpansionTypeHexStrings:
     """
 
     def setup_method(self):
-        from tests.conftest import _ensure_sim_initialized
-        _ensure_sim_initialized()
+        from testutils import ensure_sim_initialized
+        ensure_sim_initialized()
         from sim.apps.HexManager.hexpansion_mgr import HexpansionType
         self.HexpansionType = HexpansionType
 
@@ -173,8 +173,8 @@ class TestLoadHexpansionTypesFromJson:
     """
 
     def setup_method(self):
-        from tests.conftest import _ensure_sim_initialized
-        _ensure_sim_initialized()
+        from testutils import ensure_sim_initialized
+        ensure_sim_initialized()
         from sim.apps.HexManager.app import _load_hexpansion_types
         self._load = _load_hexpansion_types
 
@@ -392,8 +392,8 @@ class TestVersionsMatch:
     """Unit tests for the _versions_match() module-level helper."""
 
     def setup_method(self):
-        from tests.conftest import _ensure_sim_initialized
-        _ensure_sim_initialized()
+        from testutils import ensure_sim_initialized
+        ensure_sim_initialized()
         from sim.apps.HexManager.hexpansion_mgr import _versions_match
         self.vm = _versions_match
 
@@ -444,8 +444,8 @@ class TestCheckHexpansionAppOnPort:
     """
 
     def setup_method(self):
-        from tests.conftest import _ensure_sim_initialized
-        _ensure_sim_initialized()
+        from testutils import ensure_sim_initialized
+        ensure_sim_initialized()
         from sim.apps.HexManager.hexpansion_mgr import (
             HexpansionMgr, HexpansionType,
             _HEXPANSION_STATE_RECOGNISED_APP_OK,

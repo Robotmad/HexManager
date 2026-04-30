@@ -50,21 +50,7 @@ sys.path.append("../../../")
 #  Lazy simulator initialisation
 # ---------------------------------------------------------------------------
 
-_sim_initialized = False
-
-
-def _ensure_sim_initialized():
-    """Import ``sim.run`` exactly once to set up simulator shims.
-
-    This must **not** be called at module level – only from inside fixtures
-    or test functions – because ``sim/run.py`` replaces ``sys.meta_path``
-    and would prevent pytest from finding ``faulthandler`` during its own
-    ``pytest_configure`` phase.
-    """
-    global _sim_initialized
-    if not _sim_initialized:
-        import sim.run  # noqa: F401 – side effect: configures sys.path & fakes
-        _sim_initialized = True
+from testutils import ensure_sim_initialized as _ensure_sim_initialized
 
 
 # ---------------------------------------------------------------------------
