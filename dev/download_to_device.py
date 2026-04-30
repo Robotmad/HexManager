@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-DEFAULT_APP_DIR_ON_DEVICE = ":apps/TeamRobotMad_HexManager"
+DEFAULT_APP_DIR_ON_DEVICE = ":apps/TeamRobotmad_HexManager"
 STATE_DIR = Path(".deploy_state")
 STATE_PATH = STATE_DIR / "test_device_download_state.json"
 MPREMOTE_COMMAND_TIMEOUT = 20
