@@ -108,17 +108,13 @@ class _FakeHexDriveApp:
     exposes the tiny surface that ``_update_state_check`` probes:
 
     * ``config.port`` – the port number
-    * ``get_version()`` – returns the current HEXDRIVE_APP_VERSION
     """
 
     def __init__(self, port: int, version: int):
         _ensure_sim_initialized()
         from system.hexpansion.config import HexpansionConfig
         self.config = HexpansionConfig(port)
-        self._version = version
-
-    def get_version(self) -> int:
-        return self._version
+        self.VERSION = version
 
 
 # We need the class name to match "HexDriveApp" for _find_hexpansion_app
