@@ -44,29 +44,6 @@ _SUB_PORT_SELECT     = 7           # User selecting which hexpansion to erase (i
 _SUB_DONE            = 8           # Final state after successful initialisation or upgrade, before returning to menu
 _SUB_EXIT            = 9           # State for exiting from interactive mode back to menu)
 
-# Hexpansion states
-# unknown, blank, unrecognised, recognised but no app, recognised with app
-_HEXPANSION_STATE_UNKNOWN = 0
-_HEXPANSION_STATE_EMPTY = 1
-_HEXPANSION_STATE_FAULTY = 2
-_HEXPANSION_STATE_BLANK = 3
-_HEXPANSION_STATE_UNRECOGNISED = 4
-_HEXPANSION_STATE_RECOGNISED = 5
-_HEXPANSION_STATE_RECOGNISED_NO_APP = 6
-_HEXPANSION_STATE_RECOGNISED_OLD_APP = 7
-_HEXPANSION_STATE_RECOGNISED_APP_OK = 8
-_HEXPANSION_STATE_NAMES = [
-    "Unknown",
-    "Empty",
-    "Faulty",
-    "Blank",
-    "Unrecognised",
-    "Recognised",
-    "No App",
-    "Old App",
-    "App OK"
-]
-
 
 # EEPROM app programming outcomes
 _APP_EEPROM_RESULT_FAILURE = 0
@@ -101,6 +78,28 @@ class HexpansionMgr:
         (settings, current_state …) can be
         read and written.
     """
+    # Hexpansion states
+    # unknown, blank, unrecognised, recognised but no app, recognised with app
+    HEXPANSION_STATE_UNKNOWN = 0
+    HEXPANSION_STATE_EMPTY = 1
+    HEXPANSION_STATE_FAULTY = 2
+    HEXPANSION_STATE_BLANK = 3
+    HEXPANSION_STATE_UNRECOGNISED = 4
+    HEXPANSION_STATE_RECOGNISED = 5
+    HEXPANSION_STATE_RECOGNISED_NO_APP = 6
+    HEXPANSION_STATE_RECOGNISED_OLD_APP = 7
+    HEXPANSION_STATE_RECOGNISED_APP_OK = 8
+    HEXPANSION_STATE_NAMES = [
+        "Unknown",
+        "Empty",
+        "Faulty",
+        "Blank",
+        "Unrecognised",
+        "Recognised",
+        "No App",
+        "Old App",
+        "App OK"
+    ]
 
     # Sub-states are defined at module level (_SUB_*); app-level state
     # routing is handled by the dispatch tables in app.py.
@@ -117,7 +116,7 @@ class HexpansionMgr:
         self._port_detail_page_count: int = 2        # 2 or 3 depending on whether details page is available
         self._hexpansion_app_startup_timer: int = 0
         self._hexpansion_type_by_slot: list[int | None] = [None]*_NUM_HEXPANSION_SLOTS
-        self._hexpansion_state_by_slot: list[int] = [_HEXPANSION_STATE_UNKNOWN]*_NUM_HEXPANSION_SLOTS
+        self._hexpansion_state_by_slot: list[int] = [self.HEXPANSION_STATE_UNKNOWN]*_NUM_HEXPANSION_SLOTS
         self._hexpansion_eeprom_addr_len: list[int | None] = [None]*_NUM_HEXPANSION_SLOTS
         self._hexpansion_eeprom_addr: list[int | None] = [None]*_NUM_HEXPANSION_SLOTS
         self._hexpansion_init_type: int = 0
@@ -164,21 +163,20 @@ class HexpansionMgr:
         """Set the logging state."""
         self._logging = value
 
-
-    def probe_eeprom(self, port: int) -> tuple[str, HexpansionHeader | None]:
+    def probe_eeprom(self, port: int) -> tuple[int, HexpansionHeader | None]:
         """Probe a port and report whether its EEPROM is blank, missing, or already written."""
         try:
             header = self._read_header(port)
         except OSError:
-            return "missing", None
+            return self.HEXPANSION_STATE_EMPTY, None
         except RuntimeError:
-            return "blank", None
+            return self.HEXPANSION_STATE_BLANK, None
         except Exception as e:      # pylint: disable=broad-except
             print(f"H:Error probing EEPROM on port {port}: {e}")
-            return "error", None
+            return self.HEXPANSION_STATE_FAULTY, None
         if header is None:
-            return "error", None
-        return "written", header
+            return self.HEXPANSION_STATE_FAULTY, None
+        return self.HEXPANSION_STATE_UNRECOGNISED, header
 
 
     def erase_eeprom_for_type(self, port: int, type_index: int) -> bool:
@@ -186,6 +184,7 @@ class HexpansionMgr:
         if type_index < 0 or type_index >= len(self._app.HEXPANSION_TYPES):
             return False
         if self._hexpansion_eeprom_addr_len[port - 1] is None or self._hexpansion_eeprom_addr[port - 1] is None:
+            # we don't already know the EEPROM geometry for this port so try to read the header to refresh it
             try:
                 self._read_header(port)
             except (OSError, RuntimeError):
@@ -225,7 +224,7 @@ class HexpansionMgr:
         self._upgrade_port = None
         self._hexpansion_app_startup_timer = 0
         self._hexpansion_type_by_slot = [None] * _NUM_HEXPANSION_SLOTS
-        self._hexpansion_state_by_slot = [_HEXPANSION_STATE_UNKNOWN] * _NUM_HEXPANSION_SLOTS
+        self._hexpansion_state_by_slot = [self.HEXPANSION_STATE_UNKNOWN] * _NUM_HEXPANSION_SLOTS
         self._hexpansion_eeprom_addr_len = [None] * _NUM_HEXPANSION_SLOTS
         self._hexpansion_eeprom_addr = [None] * _NUM_HEXPANSION_SLOTS
         self._port_selected_header = None
@@ -248,7 +247,7 @@ class HexpansionMgr:
         app = self._app
         port = event.port
         self._hexpansion_type_by_slot[port - 1] = None
-        self._hexpansion_state_by_slot[port - 1] = _HEXPANSION_STATE_EMPTY
+        self._hexpansion_state_by_slot[port - 1] = self.HEXPANSION_STATE_EMPTY
         if port in self._ports_to_initialise:
             self._ports_to_initialise.remove(port)
         self._ports_to_check_app.discard(port)
@@ -311,7 +310,8 @@ class HexpansionMgr:
         """Read the EEPROM header for the given port and set the default detail page."""
         try:
             self._port_selected_header = self._read_header(port)
-        except (OSError, RuntimeError):
+        except (OSError, RuntimeError, Exception) as e:
+            print(f"H:Error reading header for port {port}: {e}")
             self._port_selected_header = None
         self._update_detail_page_count()
         # remember the unique ID so that we can program it back if the EEPROM is re-initialised.
@@ -322,11 +322,11 @@ class HexpansionMgr:
         """Set page count to 3 if the selected port has a recognised type with sub_type or app_name, else 2, or 1 if blank EEPROM."""
         state_idx = self._hexpansion_state_by_slot[self._port_selected - 1] if 1 <= self._port_selected <= _NUM_HEXPANSION_SLOTS else None
         if state_idx is not None:
-            if state_idx == _HEXPANSION_STATE_UNRECOGNISED:
+            if state_idx == self.HEXPANSION_STATE_UNRECOGNISED:
                 # Unrecognised type - show vid/pid page and EEPROM page but not details page
                 self._port_detail_page_count = 2
                 self._port_detail_page = self._PAGE_VID_PID
-            elif state_idx >= _HEXPANSION_STATE_RECOGNISED:
+            elif state_idx >= self.HEXPANSION_STATE_RECOGNISED:
                 # Recognised type - show vid/pid page and details page
                 self._port_detail_page_count = 3
                 self._port_detail_page = self._PAGE_DETAILS
@@ -459,17 +459,17 @@ class HexpansionMgr:
                     # Only worth showing "Initialised" Notification is we are NOT going to trigger Hexpansion Insertion Notification
                     self._upgrade_port = self._detected_port
                     self._sub_state = _SUB_PROGRAMMING
-                    self._hexpansion_state_by_slot[self._detected_port - 1] = _HEXPANSION_STATE_RECOGNISED
+                    self._hexpansion_state_by_slot[self._detected_port - 1] = self.HEXPANSION_STATE_RECOGNISED
                 else:
                     eventbus.emit(HexpansionInsertionEvent(self._detected_port))
                     #app.show_message(["No App", "for this", "Hexpansion"], [(1,1,0),(1,1,1),(1,1,1)], "hexpansion")
                     #self._message_being_shown = True
                     self._sub_state = _SUB_CHECK
-                    self._hexpansion_state_by_slot[self._detected_port - 1] = _HEXPANSION_STATE_RECOGNISED_NO_APP
+                    self._hexpansion_state_by_slot[self._detected_port - 1] = self.HEXPANSION_STATE_RECOGNISED_NO_APP
             else:
                 app.notification = Notification("Failed", port=self._detected_port)
                 self._hexpansion_type_by_slot[self._detected_port - 1] = None
-                self._hexpansion_state_by_slot[self._detected_port - 1] = _HEXPANSION_STATE_FAULTY
+                self._hexpansion_state_by_slot[self._detected_port - 1] = self.HEXPANSION_STATE_FAULTY
                 app.show_message(["EEPROM", "initialisation", "failed", "Protected?"], [(1,0,0),(1,0,0),(1,0,0),(1,0,0)], "warning")
                 self._message_being_shown = True
                 self._sub_state = _SUB_CHECK
@@ -549,7 +549,7 @@ class HexpansionMgr:
             self._sub_state = _SUB_PORT_SELECT if self._mode == _MODE_INTERACTIVE else _SUB_CHECK
             return
         if self._logging:
-            print(f"H:Erase {self._hexpansion_init_type} page size: {eeprom_page_size} bytes, total size: {eeprom_total_size} bytes, addr_len: {erase_addr_len}, addr: {hex(erase_addr)}")
+            print(f"H:Erase - type:{self._hexpansion_init_type} page size: {eeprom_page_size} bytes, total size: {eeprom_total_size} bytes, addr_len: {erase_addr_len}, addr: {hex(erase_addr)}")
 
         if self._erase_eeprom(erase_port,
                               erase_addr,
@@ -557,7 +557,7 @@ class HexpansionMgr:
                               eeprom_total_size,
                               eeprom_page_size):
             app.notification = Notification("Erased", port=erase_port)
-            self._hexpansion_state_by_slot[erase_port - 1] = _HEXPANSION_STATE_BLANK
+            self._hexpansion_state_by_slot[erase_port - 1] = self.HEXPANSION_STATE_BLANK
             hexpansion_type = self._type_name_for_port(erase_port)
             app.show_message([hexpansion_type, f"in slot {erase_port}:", "Erased"], [(1,1,0), (1,1,1), (0,1,0)], "hexpansion")
             self._sub_state = _SUB_DETECTED
@@ -586,7 +586,7 @@ class HexpansionMgr:
             if self._logging:
                 print("H:Upgrade Cancelled")
             app.button_states.clear()
-            self._hexpansion_state_by_slot[upgrade_port - 1] = _HEXPANSION_STATE_RECOGNISED_OLD_APP
+            self._hexpansion_state_by_slot[upgrade_port - 1] = self.HEXPANSION_STATE_RECOGNISED_OLD_APP
             self._upgrade_port = None
             self._sub_state = _SUB_PORT_SELECT if self._mode == _MODE_INTERACTIVE else (_SUB_INIT if self._mode == _MODE_INIT else _SUB_CHECK)
 
@@ -604,15 +604,16 @@ class HexpansionMgr:
         if not self._logging:
             return
         app = self._app
+        print("H:Current Hexpansion States:")
         for port in range(0, _NUM_HEXPANSION_SLOTS):
             type_idx = self._hexpansion_type_by_slot[port]
             type_name = app.HEXPANSION_TYPES[type_idx].name if type_idx is not None else "None"
-            state_name = _HEXPANSION_STATE_NAMES[self._hexpansion_state_by_slot[port]]
+            state_name = self.HEXPANSION_STATE_NAMES[self._hexpansion_state_by_slot[port]]
             print(f"Port {port+1}: Type={type_name}, State={state_name}")
-        print(f"Ports to initialise: {self._ports_to_initialise}")
-        print(f"Ports to check app: {self._ports_to_check_app}")
-        print(f"hexpansion_update_required = {app.hexpansion_update_required}")
-        print(f"mode = {self._mode}")
+        print(f"\tPorts to initialise: {self._ports_to_initialise}")
+        print(f"\tPorts to check app: {self._ports_to_check_app}")
+        print(f"\thexpansion_update_required = {app.hexpansion_update_required}")
+        print(f"\tmode = {self._mode}")
 
 
     def _update_state_check(self, delta):       # pylint: disable=unused-argument
@@ -656,12 +657,12 @@ class HexpansionMgr:
         elif app.button_states.get(BUTTON_TYPES["CONFIRM"]):
             app.button_states.clear()
             app.refresh = True
-            if self._hexpansion_state_by_slot[self._port_selected - 1] == _HEXPANSION_STATE_BLANK:
+            if self._hexpansion_state_by_slot[self._port_selected - 1] == self.HEXPANSION_STATE_BLANK:
                 # The selected port has a blank EEPROM, so we can initialise it without erasing first.
                 self._detected_port = self._port_selected
                 app.notification = Notification("Init?", port=self._detected_port)
                 self._sub_state = _SUB_DETECTED
-            elif self._hexpansion_state_by_slot[self._port_selected - 1] >= _HEXPANSION_STATE_FAULTY:
+            elif self._hexpansion_state_by_slot[self._port_selected - 1] >= self.HEXPANSION_STATE_FAULTY:
                 # The selected port has a non-blank EEPROM with a detected hexpansion type, so we need to erase it before we can initialise or upgrade it.
                 self._erase_port = self._port_selected
                 app.notification = Notification("Erase?", port=self._erase_port)
@@ -754,8 +755,8 @@ class HexpansionMgr:
         """Draw the port-select screen with paged details."""
         app = self._app
         hdr = self._port_selected_header
-        hexpansion_state = _HEXPANSION_STATE_NAMES[self._hexpansion_state_by_slot[self._port_selected - 1]]
-        if self._hexpansion_state_by_slot[self._port_selected - 1] > _HEXPANSION_STATE_BLANK:
+        hexpansion_state = self.HEXPANSION_STATE_NAMES[self._hexpansion_state_by_slot[self._port_selected - 1]]
+        if self._hexpansion_state_by_slot[self._port_selected - 1] > self.HEXPANSION_STATE_BLANK:
             hexpansion_name = self._type_name_for_port(self._port_selected, None)
         else:
             hexpansion_name = ""
@@ -819,8 +820,8 @@ class HexpansionMgr:
             colours.append((1, 1, 1))
         app.draw_message(ctx, lines, colours, label_font_size)
 
-        confirm_label = "Init" if self._hexpansion_state_by_slot[self._port_selected - 1] == _HEXPANSION_STATE_BLANK else \
-                        "Erase" if self._hexpansion_state_by_slot[self._port_selected - 1] >= _HEXPANSION_STATE_FAULTY else ""
+        confirm_label = "Init" if self._hexpansion_state_by_slot[self._port_selected - 1] == self.HEXPANSION_STATE_BLANK else \
+                        "Erase" if self._hexpansion_state_by_slot[self._port_selected - 1] >= self.HEXPANSION_STATE_FAULTY else ""
         button_labels(ctx, confirm_label=confirm_label, left_label="<Slot", right_label="Slot>",
                     up_label=up_label, down_label=down_label, cancel_label="Back")
 
@@ -840,33 +841,37 @@ class HexpansionMgr:
         self._port_selected += 1
         return self._port_selected > _NUM_HEXPANSION_SLOTS
 
-
     def _read_header(self, port: int, i2c: I2C | None=None) -> HexpansionHeader | None:
         if i2c is None:
             if port is None:
+                print("H:Error - no port specified for reading header")
                 return None
             i2c = I2C(port)
         addr_len = self._hexpansion_eeprom_addr_len[port-1]
         eeprom_addr = self._hexpansion_eeprom_addr[port-1]
-        if addr_len is None:
-            # Autodetect eeprom addr
+        print(f"H:Cached {port} - addr_len: {addr_len if addr_len is not None else 'None'}, eeprom_addr: {hex(eeprom_addr) if eeprom_addr is not None else 'None'}")
+        if addr_len is None or eeprom_addr is None:
+            # Autodetect eeprom addr_len
             eeprom_addr, addr_len = detect_eeprom_addr(i2c)
-            if eeprom_addr is None:
+            if eeprom_addr is None or addr_len is None:
                 print(f"H:Failed to detect EEPROM address on port {port}")
                 return None
             self._hexpansion_eeprom_addr_len[port-1] = addr_len
             self._hexpansion_eeprom_addr[port-1] = eeprom_addr
-        if addr_len is None or eeprom_addr is None:
-            # Autodetect eeprom addr
-            eeprom_addr, addr_len = detect_eeprom_addr(i2c)
-        if eeprom_addr is None or addr_len is None:
-            print(f"H:Failed to detect EEPROM address on port {port}")
-            print(f"H:Scan:{i2c.scan()}")  # debug - print all detected I2C addresses
-            return None
+            print(f"H:Detected {port} - addr_len: {addr_len if addr_len is not None else 'None'}, eeprom_addr: {hex(eeprom_addr) if eeprom_addr is not None else 'None'}")
+
         # Do we have a header?
-        header_bytes = i2c.readfrom_mem(eeprom_addr, 0x00, 32, addrsize=8*addr_len)
+        try:
+            header_bytes = i2c.readfrom_mem(eeprom_addr, 0x00, 32, addrsize=8*addr_len)
+        except OSError as e:
+            #print(f"H:Error reading header on port {port}: {e}")
+            # we trap the error here so that we can clear out the cached EEPROM address infomation for this port.
+            self._hexpansion_eeprom_addr_len[port - 1] = None
+            self._hexpansion_eeprom_addr[port - 1] = None
+            # pass the exception up to the caller
+            raise OSError(e) from e
         hexpansion_header = HexpansionHeader.from_bytes(header_bytes)
-        print(f"H:Read header on port {port}: {hexpansion_header}")
+        print(f"H:Header on port {port}: {hexpansion_header}")
         return hexpansion_header
 
 
@@ -878,20 +883,18 @@ class HexpansionMgr:
             return False
         try:
             if self.logging:
-                print(f"H:Reading header on port {port}...")
+                print(f"H:Reading header on port {port} to check for known hexpansions")
             hexpansion_header = self._read_header(port)
         except OSError:
             # OSError just means there is no hexpansion EEPROM on this port
             self._hexpansion_type_by_slot[port - 1] = None
-            self._hexpansion_state_by_slot[port - 1] = _HEXPANSION_STATE_EMPTY
+            self._hexpansion_state_by_slot[port - 1] = self.HEXPANSION_STATE_EMPTY
             return False
         except RuntimeError:
             # RuntimeError means there is a blank EEPROM
-            #if _IS_SIMULATOR:
-            #    return False
             if self._logging:
                 print(f"H:Found EEPROM on port {port}")
-            self._hexpansion_state_by_slot[port - 1] = _HEXPANSION_STATE_BLANK
+            self._hexpansion_state_by_slot[port - 1] = self.HEXPANSION_STATE_BLANK
             self._ports_to_initialise.add(port)
             return True
         except Exception as e:      # pylint: disable=broad-except
@@ -900,13 +903,13 @@ class HexpansionMgr:
         if hexpansion_header is None:
             print(f"H:Error reading header on port {port}")
             self._hexpansion_type_by_slot[port - 1] = None
-            self._hexpansion_state_by_slot[port - 1] = _HEXPANSION_STATE_EMPTY
+            self._hexpansion_state_by_slot[port - 1] = self.HEXPANSION_STATE_EMPTY
             return False
         for index, hexpansion_type in enumerate(app.HEXPANSION_TYPES):
             if hexpansion_header.vid == hexpansion_type.vid and hexpansion_header.pid == hexpansion_type.pid:
                 self._hexpansion_type_by_slot[port - 1] = index
-                if self._hexpansion_state_by_slot[port - 1] < _HEXPANSION_STATE_RECOGNISED:
-                    self._hexpansion_state_by_slot[port - 1] = _HEXPANSION_STATE_RECOGNISED
+                if self._hexpansion_state_by_slot[port - 1] < self.HEXPANSION_STATE_RECOGNISED:
+                    self._hexpansion_state_by_slot[port - 1] = self.HEXPANSION_STATE_RECOGNISED
                 if self._logging:
                     print(f"H:Found {hexpansion_type.name} {hexpansion_type.sub_type if hexpansion_type.sub_type else ''} on port {port}")
                 if hexpansion_type.app_name is not None:
@@ -918,7 +921,7 @@ class HexpansionMgr:
         if self._logging:
             # report VID/PID in hexadecimal
             print(f"H:Port {port} - VID/PID {hex(hexpansion_header.vid)}/{hex(hexpansion_header.pid)} not recognised")
-        self._hexpansion_state_by_slot[port - 1] = _HEXPANSION_STATE_UNRECOGNISED
+        self._hexpansion_state_by_slot[port - 1] = self.HEXPANSION_STATE_UNRECOGNISED
         return False
 
 
@@ -934,17 +937,17 @@ class HexpansionMgr:
             expected = app.HEXPANSION_TYPES[type_index].app_mpy_version
             if expected is None:
                 # No expected version recorded for this type – treat any running app as current.
-                self._hexpansion_state_by_slot[port - 1] = _HEXPANSION_STATE_RECOGNISED_APP_OK
+                self._hexpansion_state_by_slot[port - 1] = self.HEXPANSION_STATE_RECOGNISED_APP_OK
             elif not _versions_match(version, expected):
-                if self._hexpansion_state_by_slot[port - 1] != _HEXPANSION_STATE_RECOGNISED_OLD_APP:
+                if self._hexpansion_state_by_slot[port - 1] != self.HEXPANSION_STATE_RECOGNISED_OLD_APP:
                     if self._logging:
                         print(f"H:{app.HEXPANSION_TYPES[type_index].name} app on port {port} has version {version}, expected {expected}")
-                    self._hexpansion_state_by_slot[port - 1] = _HEXPANSION_STATE_RECOGNISED_OLD_APP
+                    self._hexpansion_state_by_slot[port - 1] = self.HEXPANSION_STATE_RECOGNISED_OLD_APP
                     # add to upgrade list if not already there
                     if port not in self._ports_to_check_app:
                         self._ports_to_check_app.add(port)
             else:
-                self._hexpansion_state_by_slot[port - 1] = _HEXPANSION_STATE_RECOGNISED_APP_OK
+                self._hexpansion_state_by_slot[port - 1] = self.HEXPANSION_STATE_RECOGNISED_APP_OK
             if self._logging:
                 print(f"H:{app.HEXPANSION_TYPES[type_index].name} app found on port {port}")
         return hexpansion_app
@@ -970,7 +973,7 @@ class HexpansionMgr:
             return _APP_EEPROM_RESULT_FAILURE
         source_file = f"EEPROM/{app.HEXPANSION_TYPES[selected_type].app_mpy_name}.mpy"
         if self._logging:
-            print(f"H:Writing app.mpy on port {port} with {source_file}")
+            print(f"H:Writing app.mpy on port {port} with {source_file}:")
         try:
             i2c = I2C(port)
         except Exception as e:          # pylint: disable=broad-except
@@ -978,7 +981,7 @@ class HexpansionMgr:
             return _APP_EEPROM_RESULT_FAILURE
         try:
             hexpansion_header = self._read_header(port, i2c=i2c)
-        except Exception as e:          # pylint: disable=broad-except
+        except (OSError, RuntimeError, Exception) as e:          # pylint: disable=broad-except
             print(f"H:Error reading header on port {port}: {e}")
             return _APP_EEPROM_RESULT_FAILURE
         if hexpansion_header is None:
@@ -987,27 +990,26 @@ class HexpansionMgr:
             return _APP_EEPROM_RESULT_FAILURE
         try:
             if self._logging:
-                print(f"H:Getting block devices for port {port}, addr_len={self._hexpansion_eeprom_addr_len[port-1]}, addr={hex(self._hexpansion_eeprom_addr[port-1])}...")
+                print(f"H:Getting block devices for port {port}, addr={hex(self._hexpansion_eeprom_addr[port-1])}, addr_len={self._hexpansion_eeprom_addr_len[port-1]}")
             _, partition = get_hexpansion_block_devices(i2c, hexpansion_header, self._hexpansion_eeprom_addr[port-1], addr_len=self._hexpansion_eeprom_addr_len[port-1])
         except RuntimeError as e:
-            print(f"H:Error getting block devices: {e}")
+            print(f"H:Error getting block devices for port {port}, addr={hex(self._hexpansion_eeprom_addr[port-1])}, addr_len={self._hexpansion_eeprom_addr_len[port-1]}: {e}")
             return _APP_EEPROM_RESULT_FAILURE
         mountpoint = '/hexpansion_' + str(port)
         already_mounted = False
-        if not already_mounted:
-            if self._logging:
-                print(f"H:Mounting {partition} at {mountpoint}")
-            try:
-                vfs.mount(partition, mountpoint, readonly=False)
-            except OSError as e:
-                if e.args[0] == 1:
-                    already_mounted = True
-                else:
-                    print(f"H:Error mounting: {e}")
-                    return _APP_EEPROM_RESULT_FAILURE
-            except Exception as e:      # pylint: disable=broad-except
-                print(f"H:Error mounting: {e}")
+        if self._logging:
+            print(f"H:Mounting {partition} at {mountpoint}")
+        try:
+            vfs.mount(partition, mountpoint, readonly=False)
+        except OSError as e:
+            if e.args[0] == 1:
+                already_mounted = True
+            else:
+                print(f"H:Error mounting {partition} @ {mountpoint}: {e}")
                 return _APP_EEPROM_RESULT_FAILURE
+        except Exception as e:      # pylint: disable=broad-except
+            print(f"H:Error mounting {partition} @ {mountpoint}: {e}")
+            return _APP_EEPROM_RESULT_FAILURE
         source_path = "/" + __file__.rsplit("/", 1)[0] + f"/{source_file}"
         dest_path = f"{mountpoint}/app.mpy"
 
@@ -1026,8 +1028,29 @@ class HexpansionMgr:
                 print(f"H:Error deleting {dest_path}: {e}")
                 return _APP_EEPROM_RESULT_FAILURE
 
+        # Check how much free space we have after deleting the existing app, to try to give a more informative error if the new app doesn't fit.
+        try:
+            statvfs = os.statvfs(mountpoint)
+            free_space = statvfs[0] * statvfs[3]  # f_frsize * f_bavail
+            if self._logging:
+                print(f"H:Free space on {mountpoint} after deleting existing app: {free_space} bytes")
+        except Exception as e:          # pylint: disable=broad-except
+            print(f"H:Error checking free space on {mountpoint}: {e}")
+            return _APP_EEPROM_RESULT_FAILURE
+
+        # we don't know the size of the new app so we need to get that from the source .mpy file.
+        try:
+            app_mpy_size = os.stat(source_path)[6]  # size is at index 6 of the stat result
+        except Exception as e:          # pylint: disable=broad-except
+            print(f"H:Error getting size of {source_path}: {e}")
+            return _APP_EEPROM_RESULT_FAILURE
+
+        if free_space < app_mpy_size:
+            print(f"H:Not enough free space to write app.mpy for {app.HEXPANSION_TYPES[selected_type].name} on port {port}: {free_space} bytes available, need {app_mpy_size} bytes")
+            return _APP_EEPROM_RESULT_FAILURE
+
         if self._logging:
-            print(f"H:Copying {source_path} to {dest_path}")
+            print(f"H:Copying {source_path} ({app_mpy_size} bytes) to {dest_path} ({free_space} bytes free)")
 
         try:
             template = open(source_path, "rb")
@@ -1044,14 +1067,14 @@ class HexpansionMgr:
         try:
             appfile.write(template.read())
         except Exception as e:          # pylint: disable=broad-except
-            print(f"H:Error writing Hexpansion: {e}")
+            print(f"H:Error writing {dest_path}: {e}")
             return _APP_EEPROM_RESULT_FAILURE
 
         try:
             appfile.close()
             template.close()
         except Exception as e:          # pylint: disable=broad-except
-            print(f"H:Error closing files: {e}")
+            print(f"H:Error closing files {source_path} or {dest_path}: {e}")
             return _APP_EEPROM_RESULT_FAILURE
         if not already_mounted:
             try:
@@ -1095,13 +1118,14 @@ class HexpansionMgr:
         addr_len = self._hexpansion_eeprom_addr_len[port-1]
         addr = self._hexpansion_eeprom_addr[port-1]
         try:
+            print(f"H:Write header: port:{port}, addr={addr}, addr_len={addr_len}, page_size={hexpansion_header_to_write.eeprom_page_size}")
             write_header(port, hexpansion_header_to_write, addr=addr, addr_len=addr_len, page_size=hexpansion_header_to_write.eeprom_page_size)
         except Exception as e:      # pylint: disable=broad-except
             print(f"H:Error writing header: port:{port}, addr={addr}, addr_len={addr_len}, page_size={hexpansion_header_to_write.eeprom_page_size}, error:{e} - device write protected?")
             return False
         try:
             hexpansion_header = self._read_header(port, i2c=i2c)
-        except Exception as e:      # pylint: disable=broad-except
+        except (OSError, RuntimeError, Exception) as e:      # pylint: disable=broad-except
             print(f"H:Error reading header: port:{port}, addr={addr}, addr_len={addr_len}, page_size={hexpansion_header_to_write.eeprom_page_size}, error:{e}")
             return False
         try:
@@ -1144,6 +1168,7 @@ class HexpansionMgr:
             for page in range(eeprom_total_size // eeprom_page_size):
                 mem_addr = page * eeprom_page_size
                 mem_addr_mask = (1 << (addr_len * 8)) - 1
+                print(f"H:Erasing EEPROM [port:{port}, addr:{hex(addr)}, addr_len:{addr_len}, page_size:{eeprom_page_size}, mem_addr:{hex(mem_addr & mem_addr_mask)}, page:{page}]...")
                 i2c.writeto_mem((addr | (mem_addr >> (8 * addr_len))), (mem_addr & mem_addr_mask), bytes([0xFF] * eeprom_page_size), addrsize=8 * addr_len)
                 while True:
                     try:
@@ -1154,7 +1179,7 @@ class HexpansionMgr:
                     finally:
                         time.sleep_ms(1)
         except Exception as e:      # pylint: disable=broad-except
-            print(f"H:Error erasing EEPROM [port:{port}, addr:{addr}, addr_len:{addr_len}]: {e}")
+            print(f"H:Error erasing EEPROM [port:{port}, addr:{hex(addr)}, addr_len:{addr_len}]: {e}")
             return False
         return True
 
@@ -1222,9 +1247,9 @@ class HexpansionMgr:
                 return False
             hexpansion_app = self._check_hexpansion_app_on_port(port, type_index)
             if hexpansion_app is not None:
-                if self._hexpansion_state_by_slot[port - 1] == _HEXPANSION_STATE_RECOGNISED_APP_OK:
+                if self._hexpansion_state_by_slot[port - 1] == self.HEXPANSION_STATE_RECOGNISED_APP_OK:
                     self._sub_state = _SUB_CHECK
-                elif self._hexpansion_state_by_slot[port - 1] == _HEXPANSION_STATE_RECOGNISED_OLD_APP:
+                elif self._hexpansion_state_by_slot[port - 1] == self.HEXPANSION_STATE_RECOGNISED_OLD_APP:
                     if self._logging:
                         print(f"H:Hexpansion [{port}] upgrade to {app.HEXPANSION_TYPES[type_index].app_mpy_version}?")
                     self._upgrade_port = port

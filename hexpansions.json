@@ -6,7 +6,7 @@
       "vid and pid values may be written as quoted hex strings (e.g. \"0xCAFE\"). Quoted hex strings must use speech marks to be valid JSON.",
       "Only 'pid' and 'name' are required; all other fields are optional and have sensible defaults.",
       "The app .mpy file must be placed in the HexManager EEPROM folder on the badge.",
-      "Not sure what an .mpy file is? .mpy files are compiled from .py source using the mpy-cross utility (see README.md).",
+      "Not sure what an .mpy file is? .mpy files are compiled from .py source using the mpy-cross utility (see README.md)."
     ],
     "fields": {
       "pid": "REQUIRED. Product ID (16-bit integer), e.g. \"0xD15C\".",

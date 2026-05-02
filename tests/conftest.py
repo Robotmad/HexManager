@@ -154,8 +154,8 @@ def install_fake_hexpansion(vid: int, pid: int, port: int,
     if app_class is None:
         app_class = HexDriveApp
     if app_version is None:
-        from sim.apps.HexManager.EEPROM.hexdrive import VERSION
-        app_version = VERSION
+        from sim.apps.HexManager.EEPROM.hexdrive import HexDriveApp as HexDriveRuntimeApp
+        app_version = HexDriveRuntimeApp.VERSION
 
     fake_app = app_class(port, app_version)
 

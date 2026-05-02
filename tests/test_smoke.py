@@ -32,7 +32,7 @@ def test_hexdrive_app_init(port):
 
 def test_app_versions_match():
     """Verify that the HexDrive app_mpy_version recorded in hexpansions.json matches
-    the VERSION constant in EEPROM/hexdrive.py.
+    the HexDriveApp.VERSION constant in EEPROM/hexdrive.py.
 
     hexpansions.json is the authoritative record of which .mpy version should be
     programmed onto the EEPROM.  If someone bumps hexdrive.py VERSION without
@@ -40,7 +40,7 @@ def test_app_versions_match():
     """
     import json
     import os
-    from sim.apps.HexManager.EEPROM.hexdrive import VERSION as HEXDRIVE_VERSION
+    from sim.apps.HexManager.EEPROM.hexdrive import HexDriveApp
 
     json_path = os.path.join(os.path.dirname(__file__), "..", "hexpansions.json")
     with open(json_path) as f:
@@ -50,9 +50,9 @@ def test_app_versions_match():
                         if h.get("app_name") == "HexDriveApp" and h.get("app_mpy_version") is not None]
     assert hexdrive_entries, "No HexDriveApp entries with app_mpy_version found in hexpansions.json"
     for entry in hexdrive_entries:
-        assert entry["app_mpy_version"] == HEXDRIVE_VERSION, (
+        assert entry["app_mpy_version"] == HexDriveApp.VERSION, (
             f"hexpansions.json entry pid={entry['pid']} has app_mpy_version="
-            f"{entry['app_mpy_version']} but EEPROM/hexdrive.py VERSION={HEXDRIVE_VERSION}"
+            f"{entry['app_mpy_version']} but EEPROM/hexdrive.py VERSION={HexDriveApp.VERSION}"
         )
 
 def test_hexdrive_type_pids_consistent():
@@ -440,14 +440,12 @@ class TestCheckHexpansionAppOnPort:
     def setup_method(self):
         from sim.apps.HexManager.hexpansion_mgr import (
             HexpansionMgr, HexpansionType,
-            _HEXPANSION_STATE_RECOGNISED_APP_OK,
-            _HEXPANSION_STATE_RECOGNISED_OLD_APP,
         )
         from sim.apps.HexManager import HexManagerApp
         self.HexpansionMgr = HexpansionMgr
         self.HexpansionType = HexpansionType
-        self.APP_OK = _HEXPANSION_STATE_RECOGNISED_APP_OK
-        self.OLD_APP = _HEXPANSION_STATE_RECOGNISED_OLD_APP
+        self.APP_OK = HexpansionMgr.HEXPANSION_STATE_RECOGNISED_APP_OK
+        self.OLD_APP = HexpansionMgr.HEXPANSION_STATE_RECOGNISED_OLD_APP
         self.app = HexManagerApp()
 
     def _run(self, app_mpy_version, running_version, use_uppercase=True):

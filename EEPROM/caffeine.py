@@ -23,7 +23,7 @@ class CaffeineJitter(app.App):
         self.VERSION = 1         # Increment this when making changes to the app that require the hexpansion app to be re-flashed with the new code.
 
         if config is None:
-            print("C:No Config")
+            print("CJ:No Config")
             return
 
         self.config = config
@@ -108,7 +108,7 @@ class CaffeineJitter(app.App):
         try:
             self.jitter_randomly(delta)
         except Exception as e:
-            print("Error during jitter: " + str(e))
+            print("CJ:Error during jitter: " + str(e))
 
 
     def draw(self, ctx):
@@ -143,7 +143,7 @@ class CaffeineJitter(app.App):
 
 
     def do_one_jitter(self):
-        print("Jittering")
+        print("CJ:Jittering")
         effect_choice = randint(0,len(self.cool_drv2605_effects)-1)
         self.drv.sequence[0] = Effect(self.cool_drv2605_effects[effect_choice])  # Set the effect on slot 0.
         self.drv.play() # Note that we never call stop! This means if you use the continous effects it won't stop buzzing until the next effect plays
@@ -283,7 +283,7 @@ class DRV2605:
         # Check chip ID is 3 or 7 (DRV2605 or DRV2605L).
         status = self._read_u8(_DRV2605_REG_STATUS)
         device_id = (status >> 5) & 0x07
-        print("CJ:Device id: " + str(device_id))
+        print(f"CJ:Device id: {device_id} ({hex(status)})")
         #if device_id not in (3, 4, 6, 7):
         #    raise RuntimeError("Failed to find DRV2605, check wiring!")
         # Configure registers to initialize chip.
@@ -306,27 +306,26 @@ class DRV2605:
         self.library = LIBRARY_TS2200A
         self._sequence = _DRV2605_Sequence(self)
 
+
     def _read_u8(self, address: int) -> int:
-        # Read an 8-bit unsigned value from the specified 8-bit address.
-        newbuffer = bytearray(2)
-        newbuffer[0] = address & 0xFF
-        self.i2c.writeto(_DRV2605_ADDR, newbuffer)
-        self.i2c.readfrom_into(_DRV2605_ADDR, newbuffer)
-        return newbuffer[0]
+        # Read an 8-bit unsigned value from the specified address.
+        return self.i2c.readfrom_mem(_DRV2605_ADDR, address & 0xFF, 1, addrsize=8)[0]
+
 
     def _write_u8(self, address: int, val: int) -> None:
-        # Write an 8-bit unsigned value to the specified 8-bit address.
-        self._BUFFER[0] = address & 0xFF
-        self._BUFFER[1] = val & 0xFF
-        self.i2c.writeto(_DRV2605_ADDR, self._BUFFER)
+        # Write an 8-bit unsigned value to the specified address.
+        self.i2c.writeto_mem(_DRV2605_ADDR, address & 0xFF, bytes([val]), addrsize=8)
+
 
     def play(self) -> None:
         """Play back the select effect(s) on the motor."""
         self._write_u8(_DRV2605_REG_GO, 1)
 
+
     def stop(self) -> None:
         """Stop vibrating the motor."""
         self._write_u8(_DRV2605_REG_GO, 0)
+
 
     @property
     def mode(self) -> int:

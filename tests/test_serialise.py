@@ -55,7 +55,7 @@ def test_serialise_programmes_blank_board_and_increments_id(serialise_app, monke
         calls['program'] = (port, type_index)
         return 1
 
-    monkeypatch.setattr(helper, 'probe_eeprom', lambda port: ('blank', None))
+    monkeypatch.setattr(helper, 'probe_eeprom', lambda port: (helper.HEXPANSION_STATE_BLANK, None))
     monkeypatch.setattr(helper, 'prepare_eeprom_for_type', fake_prepare)
     monkeypatch.setattr(helper, 'program_app_for_type', fake_program)
     monkeypatch.setattr(serialise_module.settings, 'save', lambda: save_calls.append(True))
@@ -100,7 +100,7 @@ def test_serialise_requires_erase_for_written_eeprom(serialise_app, monkeypatch)
     helper = app._hexpansion_mgr
     erase_calls = []
 
-    monkeypatch.setattr(helper, 'probe_eeprom', lambda port: ('written', object()))
+    monkeypatch.setattr(helper, 'probe_eeprom', lambda port: (helper.HEXPANSION_STATE_UNRECOGNISED, object()))
     monkeypatch.setattr(helper, 'erase_eeprom_for_type', lambda port, type_index: erase_calls.append((port, type_index)) or True)
 
     app.button_states.press('CONFIRM')
@@ -131,7 +131,7 @@ def test_serialise_failure_returns_via_serialise_message(serialise_app, monkeypa
     mgr = app._serialise_mgr
     helper = app._hexpansion_mgr
 
-    monkeypatch.setattr(helper, 'probe_eeprom', lambda port: ('blank', None))
+    monkeypatch.setattr(helper, 'probe_eeprom', lambda port: (helper.HEXPANSION_STATE_BLANK, None))
     monkeypatch.setattr(helper, 'prepare_eeprom_for_type', lambda port, type_index, unique_id: True)
     monkeypatch.setattr(helper, 'program_app_for_type', lambda port, type_index: -1)
 
@@ -182,7 +182,7 @@ def test_serialise_exit_refreshes_hexpansion_records(serialise_app, monkeypatch)
 
 
 def test_refresh_slot_records_rescans_all_slots(hexmanager_app, monkeypatch):
-    from sim.apps.HexManager.hexpansion_mgr import _HEXPANSION_STATE_UNKNOWN, _NUM_HEXPANSION_SLOTS
+    from sim.apps.HexManager.hexpansion_mgr import HexpansionMgr, _NUM_HEXPANSION_SLOTS
 
     app = hexmanager_app
     helper = app._hexpansion_mgr
@@ -215,7 +215,7 @@ def test_refresh_slot_records_rescans_all_slots(hexmanager_app, monkeypatch):
     assert helper._erase_port is None
     assert helper._upgrade_port is None
     assert helper._hexpansion_type_by_slot == [None] * _NUM_HEXPANSION_SLOTS
-    assert helper._hexpansion_state_by_slot == [_HEXPANSION_STATE_UNKNOWN] * _NUM_HEXPANSION_SLOTS
+    assert helper._hexpansion_state_by_slot == [HexpansionMgr.HEXPANSION_STATE_UNKNOWN] * _NUM_HEXPANSION_SLOTS
     assert helper._hexpansion_eeprom_addr_len == [None] * _NUM_HEXPANSION_SLOTS
     assert helper._hexpansion_eeprom_addr == [None] * _NUM_HEXPANSION_SLOTS
 
