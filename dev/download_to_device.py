@@ -43,6 +43,7 @@ MODULES: tuple[ModuleSpec, ...] = (
     ModuleSpec(Path("serialise_mgr.py"), Path("serialise_mgr.mpy")),
     ModuleSpec(Path("EEPROM/hexdrive.py"), Path("EEPROM/hexdrive.mpy")),
     ModuleSpec(Path("EEPROM/gps.py"), Path("EEPROM/gps.mpy")),
+    ModuleSpec(Path("EEPROM/caffeine.py"), Path("EEPROM/caffeine.mpy"))
 )
 
 # Files copied to the device as-is (no compilation).

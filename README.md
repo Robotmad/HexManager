@@ -35,8 +35,8 @@ HexManager reads hexpansion type definitions from a JSON file named **`hexpansio
 
    ```json
    {
-     "pid": "0x1234,
-     "name": "MyHexpansion",
+     "pid": "0x1234",
+     "name": "MyHex",
      "vid": "0xCAFE",
      "sub_type": "Rev A",
      "eeprom_total_size": 8192,
@@ -48,21 +48,20 @@ HexManager reads hexpansion type definitions from a JSON file named **`hexpansio
    ```
 
    > **Tip – hex values:** JSON has no hex literal syntax, but HexManager accepts hex strings for `pid`, `vid`, `eeprom_total_size`, and `eeprom_page_size`.  Wrap the value in **quote marks** to make it a JSON string:
-   > `"pid": "0xCAFE"` is equivalent to `"pid": 51966`.
-   > Plain decimal integers also work (`"pid": 51966`), whichever you find easier to read.
+   > `"pid": "0xCAFE"`.
 
 3. **Field reference** – see the `"_help"` section inside `hexpansions.json` for a full description of every field.  A summary:
 
    | Field | Required | Default | Description |
    |---|---|---|---|
    | `pid` | ✅ | – | Product ID (0–65535). Must be unique within the same VID. |
-   | `name` | ✅ | – | Display name shown on screen (keep ≤ 12 chars). |
+   | `name` | ✅ | – | Display name shown on screen ≤ 9 chars. |
    | `vid` | No | "0xCAFE" | Vendor ID. |
    | `eeprom_total_size` | No | 8192 | EEPROM size in **bytes** (e.g. 2048, 8192, 32768, 65536). |
    | `eeprom_page_size` | No | 32 | Write page size in **bytes** – check your EEPROM datasheet (e.g. 16, 32, 64, 128). |
    | `sub_type` | No | – | Short label for a specific variant, e.g. `"2 Motor"`. |
-   | `app_mpy_name` | No | – | Filename of the compiled `.mpy` app to flash to the EEPROM.  The file is renamed to `app.mpy` when written so Badge OS auto-detects and runs it on insertion. |
-   | `app_mpy_version` | No | – | Version of the `.mpy` app (used to detect when an upgrade is needed). |
+   | `app_mpy_name` | No | – | Filename (without `.mpy` extension) of the compiled app to flash to the EEPROM.  The file is renamed to `app.mpy` when written so Badge OS auto-detects and runs it on insertion. |
+   | `app_mpy_version` | No | – | Version (integer or string) of the `.mpy` app (used to detect when an upgrade is needed). |
    | `app_name` | No | – | Python class name of the hexpansion app, used to check if it is running. |
 
 4. **Prepare the app `.mpy` file** *(only needed if your hexpansion has its own badge app)*:
@@ -75,7 +74,7 @@ HexManager reads hexpansion type definitions from a JSON file named **`hexpansio
      pip install mpy-cross
      mpy-cross myhex.py         # produces myhex.mpy
      ```
-   - **The `.mpy` file must be placed in the `EEPROM` sub-folder of the HexManager app folder on the badge** (e.g. `/apps/TeamRobotmad_HexManager/EEPROM/myhex.mpy`).  Upload it via `mpremote`, or any other method you prefer.
+   - **The `.mpy` file must be placed in the `EEPROM` sub-folder of the HexManager app on the badge** (e.g. `/apps/TeamRobotmad_HexManager/EEPROM/myhex.mpy`).  Upload it via `mpremote`, or any other method you prefer.
    - When HexManager programs the EEPROM it copies the file and **renames it to `app.mpy`** on the hexpansion EEPROM, so that Badge OS automatically detects and runs it when the hexpansion is inserted into a badge slot.
 
 5. **Upload `hexpansions.json`** to the badge, replacing the existing file at `/apps/TeamRobotmad_HexManager/hexpansions.json`.

@@ -10,6 +10,7 @@ RUNTIME_MODULES = {
     "app",
     "EEPROM/hexdrive",
     "EEPROM/gps",
+    "EEPROM/caffeine",
     "settings_mgr",
     "hexpansion_mgr",
 }
@@ -57,7 +58,7 @@ if __name__ == "__main__":
     if not files_to_keep.issubset(found_files):
         raise FileNotFoundError(f"Some of {files_to_keep} are not found so assuming wrong directory. "
                                 "Please run this script from HexManager dir.")
-    
+
     files_to_remove = found_files.difference(files_to_keep)
     if not force_mode:
         if input(f"About to remove {len(files_to_remove)} files from {os.getcwd()}, continue? y/n") != "y":

@@ -2,83 +2,77 @@
   "_help": {
     "about": "HexManager Hexpansion Type Definitions - edit this file to add your own hexpansion types.",
     "instructions": [
-      "Add your hexpansion to the 'hexpansions' list below, using the existing entries as templates.",
-      "All integer values may be written as decimal (e.g. 51966) or as quoted hex strings (e.g. \"0xCAFE\"). Quoted hex strings must use speech marks to be valid JSON.",
+      "Add your hexpansion to the 'hexpansions' list below.",
+      "vid and pid values may be written as quoted hex strings (e.g. \"0xCAFE\"). Quoted hex strings must use speech marks to be valid JSON.",
       "Only 'pid' and 'name' are required; all other fields are optional and have sensible defaults.",
-      "The app .mpy file must be placed in the HexManager app folder on the badge.",
-      "mpy files are compiled from .py source using the mpy-cross utility (see README.md).",
-      "After editing this file, restart the badge app for changes to take effect.",
-      "If this file cannot be found or contains errors, a warning will be shown on screen."
+      "The app .mpy file must be placed in the HexManager EEPROM folder on the badge.",
+      "Not sure what an .mpy file is? .mpy files are compiled from .py source using the mpy-cross utility (see README.md).",
     ],
     "fields": {
-      "pid": "REQUIRED. Product ID (16-bit integer, 0-65535). Identifies this hexpansion type. Must be unique per vendor.",
-      "name": "REQUIRED. Human-friendly display name shown on screen, e.g. 'MyHexpansion'. Keep it short (<=12 chars).",
-      "vid": "OPTIONAL. Vendor ID (16-bit integer). Default 51966 (0xCAFE, USB-IF uncontrolled VID). TeamRobotmad uses 52171 (0xCBCB).",
-      "eeprom_total_size": "OPTIONAL. Total EEPROM size in BYTES. Default 8192 (8 KB). Common values: 2048, 8192, 32768, 65536.",
-      "eeprom_page_size": "OPTIONAL. EEPROM write page size in BYTES. Default 32. Common values: 16, 32, 64, 128. Check your EEPROM datasheet.",
+      "pid": "REQUIRED. Product ID (16-bit integer), e.g. \"0xD15C\".",
+      "name": "REQUIRED. Human-friendly display name shown on screen, e.g. 'HexDrive'. MAXIMUM 9 chars.",
       "sub_type": "OPTIONAL. Short label for this specific variant, e.g. '2 Motor'. Shown to the user alongside the name.",
-      "app_mpy_name": "OPTIONAL. Filename of the compiled .mpy app to write to the hexpansion EEPROM, e.g. 'myhex.mpy'. File must exist in the EEPROM sub-folder of the HexManager app folder on the badge (e.g. /apps/HexManager/EEPROM/myhex.mpy). NOTE: the file is renamed to 'app.mpy' when programmed onto the EEPROM so that Badge OS automatically detects and runs it when the hexpansion is inserted into a badge slot. NOTE: currently only a single .mpy file is supported.",
-      "app_mpy_version": "OPTIONAL. Integer version number of the .mpy app (e.g. 1, 2, 7). Used to detect when an upgrade is needed.",
-      "app_name": "OPTIONAL. Python class name of the hexpansion app, e.g. 'MyHexApp'. Used to check if the correct app is already running."
+      "vid": "OPTIONAL. Vendor ID (16-bit integer), e.g. \"0xCAFE\". Default 0xCAFE which is the UHB-IF uncontrolled VID.",
+      "eeprom_total_size": "OPTIONAL. Total EEPROM size in BYTES. Default 8192 (8 KB).",
+      "eeprom_page_size": "OPTIONAL. EEPROM page size in BYTES. Default 32.",
+      "app_mpy_name": "OPTIONAL. Filename (without .mpy extension) of the compiled app to write to the hexpansion EEPROM. File must be in the EEPROM sub-folder of the HexManager app on the badge (e.g. /apps/TeamRobotmad_HexManager/EEPROM/myhex.mpy). NOTE: the file is renamed to 'app.mpy' when programmed onto the EEPROM so that Badge OS automatically detects and runs it when the hexpansion is inserted into a badge slot.",
+      "app_mpy_version": "OPTIONAL. Version number (integer or string) of the .mpy app. Used to detect when an upgrade is needed.",
+      "app_name": "OPTIONAL. Python class name of the hexpansion app, e.g. 'MyHexApp'. Used to check if the app is running."
     }
   },
   "hexpansions": [
     {
-      "pid": "0xCBCB", "vid": "0xCAFE", "name": "HexDrive",
-      "app_mpy_name": "hexdrive.mpy", "app_mpy_version": 7, "app_name": "HexDriveApp",
-      "sub_type": "Uncommitted", "motors": 2, "servos": 4
+      "pid": "0xCBCB", "vid": "0xCAFE", "name": "HexDrive", "sub_type": "Uncommitted",
+      "eeprom_total_size": 8192, "eeprom_page_size": 32,
+      "app_mpy_name": "hexdrive", "app_mpy_version": 6, "app_name": "HexDriveApp"
     },
     {
-      "pid": "0xCBCA", "vid": "0xCAFE", "name": "HexDrive",
-      "app_mpy_name": "hexdrive.mpy", "app_mpy_version": 7, "app_name": "HexDriveApp",
-      "sub_type": "2 Motor", "motors": 2
+      "pid": "0xCBCA", "vid": "0xCAFE", "name": "HexDrive", "sub_type": "2 Motor",
+      "eeprom_total_size": 8192, "eeprom_page_size": 32,
+      "app_mpy_name": "hexdrive", "app_mpy_version": 6, "app_name": "HexDriveApp"
     },
     {
-      "pid": "0xCBCC", "vid": "0xCAFE", "name": "HexDrive",
-      "app_mpy_name": "hexdrive.mpy", "app_mpy_version": 7, "app_name": "HexDriveApp",
-      "sub_type": "4 Servo", "servos": 4
+      "pid": "0xCBCC", "vid": "0xCAFE", "name": "HexDrive", "sub_type": "4 Servo",
+      "eeprom_total_size": 8192, "eeprom_page_size": 32,
+      "app_mpy_name": "hexdrive", "app_mpy_version": 6, "app_name": "HexDriveApp"
     },
     {
-      "pid": "0xCBCD", "vid": "0xCAFE", "name": "HexDrive",
-      "app_mpy_name": "hexdrive.mpy", "app_mpy_version": 7, "app_name": "HexDriveApp",
-      "sub_type": "1 Mot 2 Srvo", "motors": 1, "servos": 2
+      "pid": "0xCBCD", "vid": "0xCAFE", "name": "HexDrive", "sub_type": "1 Mot 2 Srvo",
+      "eeprom_total_size": 8192, "eeprom_page_size": 32,
+      "app_mpy_name": "hexdrive", "app_mpy_version": 6, "app_name": "HexDriveApp"
     },
     {
-      "pid": "0x0100", "vid": "0xCBCB", "name": "HexSense",
+      "pid": "0x2000", "vid": "0xCBCB", "name": "HexSense",
       "eeprom_total_size": 65536, "eeprom_page_size": 128,
       "sub_type": "2 Line Sensors"
     },
     {
-      "pid": "0x0200", "vid": "0xCBCB", "name": "HexDriveV2",
+      "pid": "0x10CB", "vid": "0xCBCB", "name": "HexDriveV2", "sub_type": "Uncommitted",
       "eeprom_total_size": 32768, "eeprom_page_size": 64,
-      "app_mpy_name": "hexdrive.mpy", "app_mpy_version": 7, "app_name": "HexDriveApp",
-      "sub_type": "Uncommitted"
+      "app_mpy_name": "hexdrive", "app_mpy_version": 6, "app_name": "HexDriveApp"
     },
     {
-      "pid": "0x0201", "vid": "0xCBCB", "name": "HexDriveV2",
+      "pid": "0x10CA", "vid": "0xCBCB", "name": "HexDriveV2", "sub_type": "2 Motor",
       "eeprom_total_size": 32768, "eeprom_page_size": 64,
-      "app_mpy_name": "hexdrive.mpy", "app_mpy_version": 7, "app_name": "HexDriveApp",
-      "sub_type": "2 Motor", "motors": 2
+      "app_mpy_name": "hexdrive", "app_mpy_version": 6, "app_name": "HexDriveApp"
     },
     {
-      "pid": "0x0202", "vid": "0xCBCB", "name": "HexDriveV2",
+      "pid": "0x10CC", "vid": "0xCBCB", "name": "HexDriveV2", "sub_type": "2 Servo",
       "eeprom_total_size": 32768, "eeprom_page_size": 64,
-      "app_mpy_name": "hexdrive.mpy", "app_mpy_version": 7, "app_name": "HexDriveApp",
-      "sub_type": "2 Servo", "servos": 2
+      "app_mpy_name": "hexdrive", "app_mpy_version": 6, "app_name": "HexDriveApp"
     },
     {
-      "pid": "0x0300", "vid": "0xCBCB", "name": "HexTest",
+      "pid": "0x3000", "vid": "0xCBCB", "name": "HexTest",
       "eeprom_total_size": 65536, "eeprom_page_size": 128
     },
     {
-      "pid": "0x0400", "vid": "0xCBCB", "name": "HexDiag",
+      "pid": "0x4000", "vid": "0xCBCB", "name": "HexDiag",
       "eeprom_total_size": 65536, "eeprom_page_size": 128
     },
     {
-      "pid": "0x1295", "vid": "0xCAFE", "name": "GPS",
+      "pid": "0x1295", "vid": "0xCAFE", "name": "GPS", "sub_type": "L80K",
       "eeprom_total_size": 2048, "eeprom_page_size": 16,
-      "app_mpy_name": "gps.mpy", "app_mpy_version": 1, "app_name": "GPSApp",
-      "sub_type": "L80K"
+      "app_mpy_name": "gps", "app_mpy_version": 1, "app_name": "GPSApp"
     },
     {
       "_comment": "Flopagon - small 2048-byte EEPROM. EEPROM too small for an app.",
@@ -89,7 +83,7 @@
       "_comment": "Club Mate hexpansion.",
       "pid": "0xCAFF", "vid": "0xCAFE", "name": "Club Mate",
       "eeprom_total_size": 8192, "eeprom_page_size": 32,
-      "app_mpy_name": "caffeine.mpy", "app_name": "CaffeineJitter"
+      "app_mpy_name": "caffeine", "app_mpy_version": 1, "app_name": "CaffeineJitter"
     }
   ]
 }
