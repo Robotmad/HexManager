@@ -285,6 +285,8 @@ class HexpansionMgr:
     def start(self) -> bool:
         """Enter hexpansion management from the main menu."""
         app = self._app
+        if not app.HEXPANSION_TYPES:
+            return False
         app.set_menu(None)
         app.button_states.clear()
         app.refresh = True

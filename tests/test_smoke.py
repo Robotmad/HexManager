@@ -25,6 +25,32 @@ def test_hexmanager_app_init():
     from sim.apps.HexManager import HexManagerApp
     HexManagerApp()
 
+def test_hexmanager_runtime_blocks_type_dependent_flows_when_type_load_fails(monkeypatch):
+    import sim.apps.HexManager.app as hexmanager_module
+
+    monkeypatch.setattr(
+        hexmanager_module,
+        "_load_hexpansion_types",
+        lambda app_file_path, json_path=None: ([], ["hexpansions.json parse error"]),
+    )
+
+    app = hexmanager_module.HexManagerApp()
+
+    assert app.has_hexpansion_types is False
+    assert app.enable_hexpansion_mgr is False
+    assert app.enable_serialise_mgr is False
+    assert app._hexpansion_mgr.start() is False
+    assert app._serialise_mgr.start() is False
+
+    app.current_state = hexmanager_module.STATE_SERIALISE
+    app.update(0)
+
+    assert app.current_state == hexmanager_module.STATE_MESSAGE
+    assert app.message_type == "warning"
+    assert app.message[0] == "hexpansions.json"
+    assert "parse error" in app.message[-1]
+    assert app._startup_warnings == ["hexpansions.json parse error"]
+
 def test_hexdrive_app_init(port):
     from sim.apps.HexManager.EEPROM.hexdrive import HexDriveApp
     config = HexpansionConfig(port)

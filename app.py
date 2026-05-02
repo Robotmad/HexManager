@@ -221,6 +221,7 @@ class HexManagerApp(app.App):         # pylint: disable=no-member
 
         # Load hexpansion type definitions from hexpansions.json
         self.HEXPANSION_TYPES, self._startup_warnings = _load_hexpansion_types(__file__)
+        self._startup_warning_active: bool = False
         if self._startup_warnings:
             for w in self._startup_warnings:
                 print(f"H:Warning: {w}")
@@ -311,14 +312,19 @@ class HexManagerApp(app.App):         # pylint: disable=no-member
 
 
     @property
+    def has_hexpansion_types(self) -> bool:
+        """Whether any hexpansion type definitions loaded successfully."""
+        return bool(self.HEXPANSION_TYPES)
+
+    @property
     def enable_hexpansion_mgr(self):
         """Whether the Hexpansion Manager is enabled, based on whether the manager is available.  Note that this does not necessarily mean that you have hexpansion hardware, as the manager can be enabled and used for managing settings related to hexpansions even if no hexpansion hardware is detected."""
-        return self._hexpansion_mgr is not None
+        return self._hexpansion_mgr is not None and self.has_hexpansion_types
 
     @property
     def enable_serialise_mgr(self):
         """Whether the Serialise Manager is enabled, based on whether the manager is available."""
-        return self._serialise_mgr is not None
+        return self._serialise_mgr is not None and self.has_hexpansion_types
 
 
     def update_settings(self):
@@ -374,12 +380,11 @@ class HexManagerApp(app.App):         # pylint: disable=no-member
 
     def _update_main_application(self, delta: int):
         # Show any startup warnings once (e.g. hexpansions.json not found or parse error)
-        if self._startup_warnings:
-            warnings = self._startup_warnings
-            self._startup_warnings = []
-            w = warnings[0]
+        if self._startup_warnings and self.current_state != STATE_MESSAGE:
+            w = self._startup_warnings[0]
             if w.startswith(_HEXPANSIONS_JSON):
                 w = w[len(_HEXPANSIONS_JSON):].strip(": ")
+            self._startup_warning_active = True
             self.show_message([_HEXPANSIONS_JSON, "warning:", w], [(1, 0.6, 0)] * 3, msg_type="warning")
             return
         if self.current_state == STATE_MENU:
@@ -436,6 +441,9 @@ class HexManagerApp(app.App):         # pylint: disable=no-member
             elif self.message_type == "error" or self.message_type == "warning" or self.message_type == "hexpansion":
                 # Message has been acknowledged by the user
                 self.button_states.clear()
+                if self._startup_warning_active and self._startup_warnings:
+                    self._startup_warnings = self._startup_warnings[1:]
+                    self._startup_warning_active = bool(self._startup_warnings)
                 # Recheck Hexpansions - in case the issue is resolved
                 self.current_state = STATE_HEXPANSION
             else:

@@ -139,7 +139,7 @@ class SerialiseMgr:
     def start(self) -> bool:
         """Enter serialise management from the main menu."""
         app = self._app
-        if getattr(app, "_hexpansion_mgr", None) is None:
+        if getattr(app, "_hexpansion_mgr", None) is None or not app.HEXPANSION_TYPES:
             return False
         app.set_menu(None)
         app.button_states.clear()
