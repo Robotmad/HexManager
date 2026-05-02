@@ -116,6 +116,26 @@ def test_hexdrive_type_pids_consistent():
         hdt = hd_by_pid[pid_byte]  # noqa: F841 – retained for future capability checks
 
 
+class TestLittleFsFileSizing:
+    """Verify the app copy preflight matches LittleFS CTZ file sizing."""
+
+    def setup_method(self):
+        from sim.apps.HexManager.hexpansion_mgr import HexpansionMgr
+        self.max_payload = HexpansionMgr._lfs_max_payload
+
+    def test_metadata_headroom_can_consume_all_space(self):
+        assert self.max_payload(2, 64) == 0
+
+    def test_first_usable_block_still_allows_full_payload(self):
+        assert self.max_payload(3, 64) == 64
+
+    def test_29_free_blocks_only_fit_1532_bytes(self):
+        assert self.max_payload(29, 64) == 1532
+
+    def test_30_free_blocks_fit_1592_bytes(self):
+        assert self.max_payload(30, 64) == 1592
+
+
 # =====================================================================
 #  HexpansionType hex-string constructor acceptance
 # =====================================================================

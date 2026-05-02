@@ -101,6 +101,8 @@ class HexpansionMgr:
         "App OK"
     ]
 
+    _LFS_META = 2   # Number of free blocks to reserve for LittleFS metadata when calculating how much space we have to write an app to the EEPROM (keep 1 block in hand for file create/sync, and 1 block in hand to ensure we don't fill the EEPROM completely and cause weird LittleFS behaviour)
+
     # Sub-states are defined at module level (_SUB_*); app-level state
     # routing is handled by the dispatch tables in app.py.
 
@@ -212,6 +214,29 @@ class HexpansionMgr:
     def program_app_for_type(self, port: int, type_index: int) -> int:
         """Write the configured app for a specific hexpansion type to EEPROM."""
         return self._update_app_in_eeprom(port, type_index=type_index)
+
+
+    @classmethod
+    def _lfs_max_payload(cls, free_blocks: int, block_size: int) -> int:
+        """Return the largest file payload LittleFS can accept right now.
+
+        Keep one metadata pair in hand for file create/sync, then sum the CTZ
+        payload of each remaining data block.
+        """
+        if free_blocks <= cls._LFS_META or block_size <= 0:
+            return 0
+
+        max_payload = 0
+        for block_index in range(free_blocks - cls._LFS_META):
+            if block_index == 0:
+                max_payload += block_size
+                continue
+
+            ctz = 0
+            while ((block_index >> ctz) & 1) == 0:
+                ctz += 1
+            max_payload += block_size - 4 * (ctz + 1)
+        return max_payload
 
 
     def refresh_slot_records(self):
@@ -1033,9 +1058,11 @@ class HexpansionMgr:
         # Check how much free space we have after deleting the existing app, to try to give a more informative error if the new app doesn't fit.
         try:
             statvfs = os.statvfs(mountpoint)
-            free_space = statvfs[0] * statvfs[3]  # f_frsize * f_bavail
+            fs_block_size = statvfs[1] if len(statvfs) > 1 and statvfs[1] else statvfs[0]
+            free_blocks = statvfs[4] if len(statvfs) > 4 else statvfs[3]
+            free_space = fs_block_size * free_blocks
             if self._logging:
-                print(f"H:Free space on {mountpoint} after deleting existing app: {free_space} bytes")
+                print(f"H:Free space on {mountpoint} after deleting existing app: {free_space} bytes ({free_blocks} blocks @ {fs_block_size} bytes)")
         except Exception as e:          # pylint: disable=broad-except
             print(f"H:Error checking free space on {mountpoint}: {e}")
             return _APP_EEPROM_RESULT_FAILURE
@@ -1047,12 +1074,22 @@ class HexpansionMgr:
             print(f"H:Error getting size of {source_path}: {e}")
             return _APP_EEPROM_RESULT_FAILURE
 
-        if free_space < app_mpy_size:
-            print(f"H:Not enough free space to write app.mpy for {app.HEXPANSION_TYPES[selected_type].name} on port {port}: {free_space} bytes available, need {app_mpy_size} bytes")
+        max_payload = self._lfs_max_payload(free_blocks, fs_block_size)
+        if self._logging:
+            print(f"H:Largest writable LittleFS file on {mountpoint}: {max_payload} bytes")
+        if app_mpy_size > max_payload:
+            print(
+                f"H:Not enough free space to write app.mpy for {app.HEXPANSION_TYPES[selected_type].name} "
+                f"on port {port}: {free_space} bytes ({free_blocks} blocks) available, but the largest "
+                f"writable payload is {max_payload} bytes and the app needs {app_mpy_size} bytes"
+            )
             return _APP_EEPROM_RESULT_FAILURE
 
         if self._logging:
-            print(f"H:Copying {source_path} ({app_mpy_size} bytes) to {dest_path} ({free_space} bytes free)")
+            print(
+                f"H:Copying {source_path} ({app_mpy_size} bytes) to {dest_path} "
+                f"({free_space} bytes free, max payload {max_payload} bytes)"
+            )
 
         try:
             template = open(source_path, "rb")
