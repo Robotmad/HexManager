@@ -9,6 +9,8 @@ from system.hexpansion.config import HexpansionConfig
 from system.hexpansion.events import HexpansionRemovalEvent
 from system.scheduler.events import RequestForegroundPopEvent, RequestForegroundPushEvent, RequestStopAppEvent
 from app_components import clear_background
+from app_components.tokens import button_labels
+
 from random import randint
 
 
@@ -17,17 +19,18 @@ ENABLE_PIN  = 3
 
 
 class CaffeineJitter(app.App):
+    """ App to simulate caffeine jitters by randomly vibrating a motor connected to the hexpansion. """
+    VERSION = 1         # Increment this when making changes to the app that require the hexpansion app to be re-flashed with the new code.
+
     def __init__(self, config: HexpansionConfig | None = None):
         super().__init__()
-
-        self.VERSION = 1         # Increment this when making changes to the app that require the hexpansion app to be re-flashed with the new code.
 
         if config is None:
             print("CJ:No Config")
             return
 
         self.config = config
-        self.foreground = False
+        self.foreground = False             # currently the app behaves as if it is always in the foreground, but this variable is here to make it easy to change that in the future if we want to only have the jitters happen when the app is in the foreground.
         self.button_states = Buttons(self)
         self.jitter_factor = 0.5 # Litres of Club Mate consumed
         self.amount_consumed_col = [1.0, 1.0, 1.0] # This is just the colour of the text
@@ -40,11 +43,9 @@ class CaffeineJitter(app.App):
         self.enable_pin.init(self.enable_pin.OUT)
         self.enable_pin.on()
 
-        eventbus.on(ButtonDownEvent, self._handle_buttondown, self)
         eventbus.on_async(RequestStopAppEvent, self._handle_stop_app, self)
         eventbus.on_async(RequestForegroundPushEvent, self._handle_foreground_push, self)
         eventbus.on_async(RequestForegroundPopEvent, self._handle_foreground_pop, self)
-        eventbus.on(HexpansionRemovalEvent, self._handle_hexpansion_removal, self)
 
 
     async def _handle_stop_app(self, event: RequestStopAppEvent):
@@ -57,43 +58,23 @@ class CaffeineJitter(app.App):
     async def _handle_foreground_push(self, event: RequestForegroundPushEvent):
         """ Handle the RequestForegroundPushEvent to know when we gain focus """
         if event.app == self:
-            print("CJ:Gained foreground, registering button handler")
-            eventbus.on(ButtonDownEvent, self._handle_buttondown, self)
+            print("CJ:Gained foreground")
             self.foreground = True
 
 
     async def _handle_foreground_pop(self, event: RequestForegroundPopEvent):
         """ Handle the RequestForegroundPopEvent to know when we lose focus """
         if event.app == self:
-            print("CJ:Lost foreground, removing button handler")
-            eventbus.remove(ButtonDownEvent, self._handle_buttondown, self)
+            print("CJ:Lost foreground")
             self.foreground = False
 
 
-    def _handle_hexpansion_removal(self, event: HexpansionRemovalEvent):
-        if event.port == self.config.port:
-            print("CJ:Hexpansion removed, stopping app")
-            eventbus.emit(RequestStopAppEvent(self))
-
-
-    def _handle_buttondown(self, event: ButtonDownEvent):
-        if BUTTON_TYPES["CANCEL"] in event.button:
-            print("CJ:Cancel button pressed, stopping app")
-            self.minimise()
-        elif BUTTON_TYPES["UP"] in event.button:
-            self.jitter_factor += 0.1
-            if self.jitter_factor >= 1:
-                self.jitter_factor = 1.0
-            self.jitter_timeout_ms = self.generate_timeout() # Update the timeout whenever the amount consumed has changed
-        elif BUTTON_TYPES["DOWN"] in event.button:
-            self.jitter_factor -= 0.1
-            if self.jitter_factor < 0:
-                self.jitter_factor = 0.0
-            self.jitter_timeout_ms = self.generate_timeout() # Update the timeout whenever the amount consumed has changed
-
-
     def deinit(self):
-        """ Deinitialise the app, releasing any resources (e.g. UART) """
+        """ Deinitialise the app, releasing any resources """
+        try:
+            self.drv.stop()
+        except Exception as e:
+            print(f"CJ:Error during deinit stop(): {e}")
         self.enable_pin.off()
 
 
@@ -102,6 +83,27 @@ class CaffeineJitter(app.App):
             # This triggers the automatic foreground display
             eventbus.emit(RequestForegroundPushEvent(self))
             self.foreground = True
+
+        if self.button_states.get(BUTTON_TYPES["CANCEL"]):
+            print("CJ:Cancel button pressed, minimise")
+            self.button_states.clear()
+            self.minimise()
+        elif self.button_states.get(BUTTON_TYPES["CONFIRM"]):
+            print("CJ:Confirm button pressed, stopping app")
+            self.button_states.clear()
+            eventbus.emit(RequestStopAppEvent(self))
+        elif self.button_states.get(BUTTON_TYPES["UP"]):
+            self.button_states.clear()
+            self.jitter_factor += 0.1
+            if self.jitter_factor >= 1:
+                self.jitter_factor = 1.0
+            self.jitter_timeout_ms = self.generate_timeout() # Update the timeout whenever the amount consumed has changed
+        elif self.button_states.get(BUTTON_TYPES["DOWN"]):
+            self.button_states.clear()
+            self.jitter_factor -= 0.1
+            if self.jitter_factor < 0:
+                self.jitter_factor = 0.0
+            self.jitter_timeout_ms = self.generate_timeout() # Update the timeout whenever the amount consumed has changed
 
 
     def background_update(self, delta: int):
@@ -124,9 +126,10 @@ class CaffeineJitter(app.App):
 
         # Make the text increasingly red by turning down the green and blue as the jitter factor increases
         self.amount_consumed_col[1] = 1.0 - self.jitter_factor
-        self.amount_consumed_col[2] = 1.0- self.jitter_factor
+        self.amount_consumed_col[2] = 1.0 - self.jitter_factor
 
         ctx.rgb(self.amount_consumed_col[0],self.amount_consumed_col[1], self.amount_consumed_col[2]).move_to(-amount_consumed_width/2, 12).text(amount_consumed_text)
+        button_labels(ctx, cancel_label="Back", confirm_label="Quit", up_label="^", down_label="\u25BC")
 
 
     def jitter_randomly(self, delta: int):
@@ -146,7 +149,10 @@ class CaffeineJitter(app.App):
         print("CJ:Jittering")
         effect_choice = randint(0,len(self.cool_drv2605_effects)-1)
         self.drv.sequence[0] = Effect(self.cool_drv2605_effects[effect_choice])  # Set the effect on slot 0.
-        self.drv.play() # Note that we never call stop! This means if you use the continous effects it won't stop buzzing until the next effect plays
+        try:
+            self.drv.play() # Play the effect, this will block until the effect is done playing, so we don't need to worry about timing when to stop it.
+        except Exception as e:
+            print(f"CJ:Error during play(): {e}")
 
 
 __app_export__ = CaffeineJitter
