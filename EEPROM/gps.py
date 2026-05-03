@@ -16,20 +16,20 @@ class GPSApp(app.App):         # pylint: disable=no-member
         super().__init__()
 
         if config is None:
-            raise ValueError("GPSApp config")
+            raise TypeError     # The app should not be run without a config as it won't work (shouldn't happen anyway if run from the hexpansion EEPROM)
 
         self.config = config    # Enables HexManager to check which port app is associated with
-        self.t = config.pin[1]
-        self.x = config.pin[0]
+        self.t = config.pin[0]
+        self.x = config.pin[1]
         self.r = config.pin[2]
-        self.f = False          # Whether the app is in the foreground or not, used to control when to read from the GPS and when to reset it.
         self.b = Buttons(self)
         self.l = None           # Last GPS fix as a string in the format "lat,lon" or None if no fix yet. Latitude and longitude are rounded to 5 decimal places which gives a precision of about 1 meter, more than enough for badgebot's purposes.
         self.u = UART(1, baudrate=9600, tx=self.t, rx=self.x)
         self.r.init(mode=Pin.OUT)
         self.r.value(1)
-        self.z = 0              # Ticks since GPS reset, used to control when to release the GPS from reset after resetting it when the app is in the foreground and to prevent reading from the GPS for a short time after resetting it.
-        self.y = 0              # Ticks since last GPS fix, used to control when to discard the last GPS fix after not getting a new one for a while.
+        self.z = -1             # Ticks timer - time since GPS reset, used to control when to release the GPS from reset after resetting it
+                                # and then used to time how long since last valid GPS fix.
+                                # also used as a flag (-1) to indicate that ForegroundPushEvent has not yet been emitted
 
         eventbus.on_async(RequestStopAppEvent, self.s, self)
 
@@ -46,22 +46,18 @@ class GPSApp(app.App):         # pylint: disable=no-member
         if self.b.get(BUTTON_TYPES["CANCEL"]):
             self.b.clear()
             self.minimise()
-        elif self.b.get(BUTTON_TYPES["CONFIRM"]):
-            self.b.clear()
-            eventbus.emit(RequestStopAppEvent(self))
+
+        if self.z < 0:
+            eventbus.emit(RequestForegroundPushEvent(self))
+
+        self.z +=_d
 
         if self.r.value():
-            self.z +=_d
-            if self.z > 100:
+            if self.z > 99:
                 self.r.value(0)
 
-        if not self.f:
-            eventbus.emit(RequestForegroundPushEvent(self))
-            self.f = True
-
         if self.l:
-            self.y += _d
-            if self.y > 10000:
+            if self.z > 9999:
                 self.l = None
 
 
@@ -69,6 +65,7 @@ class GPSApp(app.App):         # pylint: disable=no-member
         """ Update the app state in the background - read GPS data """
         l = self.u.readline()
         if l:
+            print(l)
             try:
                 p = l.decode().strip().split(',')
                 if (p[0] != "$GPRMC" and p[0] != "$GNRMC") or p[2] != "A" or not p[3] or not p[5]:
@@ -79,16 +76,24 @@ class GPSApp(app.App):         # pylint: disable=no-member
                     t = -t
                 if p[6] == "W":
                     n = -n
-                self.l = str(round(t, 5)) + "," + str(round(n, 5))#
-                self.y = 0
+                self.l = str(round(t, 5))
+                self.n = str(round(n, 5))
+                self.z = 0
             except (UnicodeError, ValueError, AttributeError):
                 pass
 
 
     def draw(self, _c):
+        _c.font_size = 40   # not using defined sizes to save bytes in the mpy file
         _c.rgb(0, 0.2, 0).rectangle(-120, -120, 240, 240).fill()
-        _c.rgb(0, 1, 0).move_to(-100, -10).text(self.l if self.l else "Search")
-        button_labels(_c, confirm_label="Quit", cancel_label="Back")
+        _c.rgb(0, 1, 0).move_to(-35, -50).text("GPS")
+        if self.l:
+            _c.move_to(-110,  0).text("Lat:" + self.l)
+            _c.move_to(-110, 40).text("Lon:" + self.n)
+        else:
+            _c.move_to(-110,  0).text("Searching...")
+
+        button_labels(_c, cancel_label="Back")
 
 
 __app_export__ = GPSApp     #pylint: disable=invalid-name
