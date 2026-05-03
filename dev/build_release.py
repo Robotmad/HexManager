@@ -12,6 +12,7 @@ RUNTIME_MODULES = {
     "EEPROM/gps",
     "EEPROM/caffeine",
     "settings_mgr",
+    "serialise_mgr",
     "hexpansion_mgr",
 }
 
