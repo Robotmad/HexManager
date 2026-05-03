@@ -690,6 +690,12 @@ class HexpansionMgr:
                 self._detected_port = self._port_selected
                 app.notification = Notification("Init?", port=self._detected_port)
                 self._sub_state = _SUB_DETECTED
+            elif self._hexpansion_state_by_slot[self._port_selected - 1] == self.HEXPANSION_STATE_RECOGNISED_OLD_APP:
+                # The selected port has an old app, so we can upgrade it.
+                self._upgrade_port = self._port_selected
+                self._hexpansion_init_type = self._hexpansion_type_by_slot[self._upgrade_port - 1] if self._hexpansion_type_by_slot[self._upgrade_port - 1] is not None else 0
+                app.notification = Notification("Upgrade?", port=self._upgrade_port)
+                self._sub_state = _SUB_UPGRADE_CONFIRM
             elif self._hexpansion_state_by_slot[self._port_selected - 1] >= self.HEXPANSION_STATE_FAULTY:
                 # The selected port has a non-blank EEPROM with a detected hexpansion type, so we need to erase it before we can initialise or upgrade it.
                 self._erase_port = self._port_selected
@@ -849,6 +855,7 @@ class HexpansionMgr:
         app.draw_message(ctx, lines, colours, label_font_size)
 
         confirm_label = "Init" if self._hexpansion_state_by_slot[self._port_selected - 1] == self.HEXPANSION_STATE_BLANK else \
+                        "Upgrade" if self._hexpansion_state_by_slot[self._port_selected - 1] == self.HEXPANSION_STATE_RECOGNISED_OLD_APP else \
                         "Erase" if self._hexpansion_state_by_slot[self._port_selected - 1] >= self.HEXPANSION_STATE_FAULTY else ""
         button_labels(ctx, confirm_label=confirm_label, left_label="<Slot", right_label="Slot>",
                     up_label=up_label, down_label=down_label, cancel_label="Back")
