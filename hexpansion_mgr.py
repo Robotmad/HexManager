@@ -379,42 +379,43 @@ class HexpansionMgr:
             if self._scan_ports():
                 self._port_selected = 0
                 self._sub_state = _SUB_CHECK
-        elif app.hexpansion_update_required:
-            # This flag is set when a hexpansion-related event occurs that should trigger an update of the hexpansion management state machine (e.g. insertion/removal of a hexpansion).
-            if self._mode == _MODE_IDLE:
-                self._mode = _MODE_UPDATE
-                if self._logging:
-                    print("H:Hexpansion update triggered by event")
-                self._sub_state = _SUB_CHECK
-                app.set_menu(None)
-            elif self._mode == _MODE_INTERACTIVE:
-                app.hexpansion_update_required = False
-                self._sub_state = _SUB_CHECK
+        else:
+            if app.hexpansion_update_required:
+                # This flag is set when a hexpansion-related event occurs that should trigger an update of the hexpansion management state machine (e.g. insertion/removal of a hexpansion).
+                if self._mode == _MODE_IDLE:
+                    self._mode = _MODE_UPDATE
+                    if self._logging:
+                        print("H:Hexpansion update triggered by event")
+                    self._sub_state = _SUB_CHECK
+                    app.set_menu(None)
+                elif self._mode == _MODE_INTERACTIVE:
+                    app.hexpansion_update_required = False
+                    self._sub_state = _SUB_CHECK
 
-        if self._check_ports_to_upgrade(delta):
-            # moves to _SUB_UPGRADE_CONFIRM if there are any ports with recognised hexpansion which need upgrading
-            # then to _SUB_PROGRAMMING if the user confirms the upgrade
-            # finally gets to _SUB_CHECK
-            pass
-        elif self._check_ports_to_initialise(delta):
-            # moves to _SUB_DETECTED if there are any ports with blank EEPROM which could be initialised
-            # then to _SUB_PROGRAMMING if the user confirms the initialisation
-            # finally gets to _SUB_CHECK
-            pass
-        elif self._sub_state == _SUB_DETECTED:
-            self._update_state_detected(delta)
-        elif self._sub_state == _SUB_ERASE_CONFIRM:
-            self._update_state_erase_confirm(delta)
-        elif self._sub_state == _SUB_ERASE:
-            self._update_state_erase(delta)
-        elif self._sub_state == _SUB_UPGRADE_CONFIRM:
-            self._update_state_upgrade(delta)
-        elif self._sub_state == _SUB_PROGRAMMING:
-            self._update_state_programming(delta)
-        elif self._sub_state == _SUB_PORT_SELECT:
-            self._update_state_port_select(delta)
-        elif self._sub_state == _SUB_CHECK:
-            self._update_state_check(delta)
+            if self._check_ports_to_upgrade(delta):
+                # moves to _SUB_UPGRADE_CONFIRM if there are any ports with recognised hexpansion which need upgrading
+                # then to _SUB_PROGRAMMING if the user confirms the upgrade
+                # finally gets to _SUB_CHECK
+                pass
+            elif self._check_ports_to_initialise(delta):
+                # moves to _SUB_DETECTED if there are any ports with blank EEPROM which could be initialised
+                # then to _SUB_PROGRAMMING if the user confirms the initialisation
+                # finally gets to _SUB_CHECK
+                pass
+            elif self._sub_state == _SUB_DETECTED:
+                self._update_state_detected(delta)
+            elif self._sub_state == _SUB_ERASE_CONFIRM:
+                self._update_state_erase_confirm(delta)
+            elif self._sub_state == _SUB_ERASE:
+                self._update_state_erase(delta)
+            elif self._sub_state == _SUB_UPGRADE_CONFIRM:
+                self._update_state_upgrade(delta)
+            elif self._sub_state == _SUB_PROGRAMMING:
+                self._update_state_programming(delta)
+            elif self._sub_state == _SUB_PORT_SELECT:
+                self._update_state_port_select(delta)
+            elif self._sub_state == _SUB_CHECK:
+                self._update_state_check(delta)
 
         if self._sub_state != self._prev_state:
             if self._logging:
@@ -868,6 +869,7 @@ class HexpansionMgr:
         self._port_selected += 1
         return self._port_selected > _NUM_HEXPANSION_SLOTS
 
+
     def _read_header(self, port: int, i2c: I2C | None=None) -> HexpansionHeader | None:
         if i2c is None:
             if port is None:
@@ -1060,9 +1062,6 @@ class HexpansionMgr:
             statvfs = os.statvfs(mountpoint)
             fs_block_size = statvfs[1] if len(statvfs) > 1 and statvfs[1] else statvfs[0]
             free_blocks = statvfs[4] if len(statvfs) > 4 else statvfs[3]
-            free_space = fs_block_size * free_blocks
-            if self._logging:
-                print(f"H:Free space on {mountpoint} after deleting existing app: {free_space} bytes ({free_blocks} blocks @ {fs_block_size} bytes)")
         except Exception as e:          # pylint: disable=broad-except
             print(f"H:Error checking free space on {mountpoint}: {e}")
             return _APP_EEPROM_RESULT_FAILURE
@@ -1075,21 +1074,15 @@ class HexpansionMgr:
             return _APP_EEPROM_RESULT_FAILURE
 
         max_payload = self._lfs_max_payload(free_blocks, fs_block_size)
-        if self._logging:
-            print(f"H:Largest writable LittleFS file on {mountpoint}: {max_payload} bytes")
         if app_mpy_size > max_payload:
             print(
-                f"H:Not enough free space to write app.mpy for {app.HEXPANSION_TYPES[selected_type].name} "
-                f"on port {port}: {free_space} bytes ({free_blocks} blocks) available, but the largest "
-                f"writable payload is {max_payload} bytes and the app needs {app_mpy_size} bytes"
+                f"H:Not enough free space to write app.mpy for {app.HEXPANSION_TYPES[selected_type].name}"
+                f" on port {port}: largest writable file is {max_payload}bytes and the app needs {app_mpy_size}bytes"
             )
             return _APP_EEPROM_RESULT_FAILURE
 
         if self._logging:
-            print(
-                f"H:Copying {source_path} ({app_mpy_size} bytes) to {dest_path} "
-                f"({free_space} bytes free, max payload {max_payload} bytes)"
-            )
+            print(f"H:Copying {source_path} ({app_mpy_size} bytes) to {dest_path}")
 
         try:
             template = open(source_path, "rb")
