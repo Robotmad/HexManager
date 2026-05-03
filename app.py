@@ -15,7 +15,7 @@ from system.scheduler.events import (RequestForegroundPopEvent,
                                      RequestStopAppEvent)
 import app
 
-APP_VERSION = "0.1" # HexManager App Version Number
+APP_VERSION = "0.2" # HexManager App Version Number
 
 
 _HEXPANSIONS_JSON = "hexpansions.json"  # Name of the hexpansion type definitions file
