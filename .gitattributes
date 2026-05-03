@@ -1,4 +1,5 @@
 .gitignore export-ignore
+.gitattributes export-ignore
 download.bat export-ignore
 download.sh export-ignore
 pyproject.toml export-ignore
