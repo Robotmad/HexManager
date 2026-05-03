@@ -7,7 +7,7 @@ README.md export-ignore
 .vscode/ export-ignore
 dev/ export-ignore
 tests/ export-ignore
-typings/ expot-ignore
+typings/ export-ignore
 *.py export-ignore
 EEPROM/*.py export-ignore
 pyproject.toml export-ignore
