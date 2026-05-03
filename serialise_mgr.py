@@ -139,7 +139,7 @@ class SerialiseMgr:
     def start(self) -> bool:
         """Enter serialise management from the main menu."""
         app = self._app
-        if getattr(app, "_hexpansion_mgr", None) is None:
+        if getattr(app, "_hexpansion_mgr", None) is None or not app.HEXPANSION_TYPES:
             return False
         app.set_menu(None)
         app.button_states.clear()
@@ -321,25 +321,25 @@ class SerialiseMgr:
 
     def _process_pending_port(self, port: int):
         app = self._app
-        hexpansion_mgr = self._hexpansion_mgr()
-        if hexpansion_mgr is None:
+        hex_mgr = self._hexpansion_mgr()
+        if hex_mgr is None:
             self._show_serialise_message(["No helper", "available"], [_COLOUR_ERROR, _COLOUR_ERROR], _SUB_SETUP)
             return
-        status, _ = hexpansion_mgr.probe_eeprom(port)
-        if status == "blank":
+        status, _ = hex_mgr.probe_eeprom(port)
+        if status == hex_mgr.HEXPANSION_STATE_BLANK:
             self._active_port = port
             app.notification = Notification("Ready", port=port)
             self._sub_state = _SUB_SUMMARY
             app.refresh = True
             return
-        if status == "written":
+        if status >= hex_mgr.HEXPANSION_STATE_UNRECOGNISED:
             self._active_port = port
             app.notification = Notification("Erase?", port=port)
             self._sub_state = _SUB_ERASE_CONFIRM
             app.refresh = True
             return
         self._active_port = None
-        if status == "missing":
+        if status == hex_mgr.HEXPANSION_STATE_EMPTY:
             self._show_serialise_message(["No EEPROM", f"Slot {port}"], [_COLOUR_ERROR, _COLOUR_DATA], _SUB_WAITING)
             return
         self._show_serialise_message(["Read fail", f"Slot {port}"], [_COLOUR_ERROR, _COLOUR_DATA], _SUB_WAITING)
@@ -531,7 +531,7 @@ class SerialiseMgr:
             app.button_states.clear()
             self._sub_state = _SUB_EXIT
         return True
-    
+
 
     # ------------------------------------------------------------------
     # Draw serialisation-related states
@@ -556,7 +556,7 @@ class SerialiseMgr:
             type_lines, type_colours = self._type_detail_lines(include_storage=False, include_id=True)
             waiting_lines, waiting_colours = self._pad_message_rows(["Insert Board"] + type_lines,
                                                                 [_COLOUR_TITLE] + type_colours,
-                                                                5)            
+                                                                5)
             app.draw_message(ctx,
                              waiting_lines,
                              waiting_colours,
@@ -600,5 +600,3 @@ class SerialiseMgr:
             button_labels(ctx, cancel_label="Exit")
             return True
         return False
-
-

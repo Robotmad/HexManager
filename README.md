@@ -1,6 +1,6 @@
 # Hex(pansion) Manager app
 
-EMF Camp Badge App for managing hexpansion. Supports initialising, erasing and upgrading them.  Provies means to serialise a batch with unique ids.  Additional hexpansion varieties can easily be added.  The ides is that anyone can use this app rather than each developer who makes a hexpansion with software having to write this capability from scratch.
+EMF Camp Badge App for managing hexpansion. Supports initialising, erasing and upgrading them.  Provies means to serialise a batch with unique ids.  Additional hexpansion varieties can easily be added.  The idea is that anyone can use this app rather than each developer who makes a hexpansion with software having to write this capability from scratch.
 
 ## User guide
 
@@ -35,9 +35,9 @@ HexManager reads hexpansion type definitions from a JSON file named **`hexpansio
 
    ```json
    {
-     "pid": 4096,
-     "name": "MyHexpansion",
-     "vid": 51966,
+     "pid": "0x1234",
+     "name": "MyHex",
+     "vid": "0xCAFE",
      "sub_type": "Rev A",
      "eeprom_total_size": 8192,
      "eeprom_page_size": 32,
@@ -47,22 +47,22 @@ HexManager reads hexpansion type definitions from a JSON file named **`hexpansio
    }
    ```
 
-   > **Important:** all integer values in JSON are **decimal** (not hex).  Use a calculator to convert:  
-   > `0xCAFE = 51966`,  `0xCBCB = 52171`,  `0x1000 = 4096`, etc.
+   > **Tip – hex values:** JSON has no hex literal syntax, but HexManager accepts hex strings for `pid`, `vid`, `eeprom_total_size`, and `eeprom_page_size`.  Wrap the value in **quote marks** to make it a JSON string:
+   > `"pid": "0xCAFE"`.
 
 3. **Field reference** – see the `"_help"` section inside `hexpansions.json` for a full description of every field.  A summary:
 
    | Field | Required | Default | Description |
    |---|---|---|---|
    | `pid` | ✅ | – | Product ID (0–65535). Must be unique within the same VID. |
-   | `name` | ✅ | – | Display name shown on screen (keep ≤ 12 chars). |
-   | `vid` | No | 51966 (0xCAFE) | Vendor ID.  TeamRobotmad uses 52171 (0xCBCB). |
+   | `name` | ✅ | – | Display name shown on screen ≤ 9 chars. |
+   | `vid` | No | "0xCAFE" | Vendor ID. |
    | `eeprom_total_size` | No | 8192 | EEPROM size in **bytes** (e.g. 2048, 8192, 32768, 65536). |
    | `eeprom_page_size` | No | 32 | Write page size in **bytes** – check your EEPROM datasheet (e.g. 16, 32, 64, 128). |
    | `sub_type` | No | – | Short label for a specific variant, e.g. `"2 Motor"`. |
-   | `app_mpy_name` | No | – | Filename of the compiled `.mpy` app to flash to the EEPROM. |
-   | `app_mpy_version` | No | – | Integer version of the `.mpy` app (used to detect when an upgrade is needed). |
-   | `app_name` | No | – | Python class name of the hexpansion app, used to check if it is already running. |
+   | `app_mpy_name` | No | – | Filename (without `.mpy` extension) of the compiled app to flash to the EEPROM.  The file is renamed to `app.mpy` when written so Badge OS auto-detects and runs it on insertion. |
+   | `app_mpy_version` | No | – | Version (integer or string) of the `.mpy` app (used to detect when an upgrade is needed). |
+   | `app_name` | No | – | Python class name of the hexpansion app, used to check if it is running. |
 
 4. **Prepare the app `.mpy` file** *(only needed if your hexpansion has its own badge app)*:
 
@@ -74,11 +74,12 @@ HexManager reads hexpansion type definitions from a JSON file named **`hexpansio
      pip install mpy-cross
      mpy-cross myhex.py         # produces myhex.mpy
      ```
-   - **The `.mpy` file must be placed in the HexManager app folder on the badge** (same folder as `app.mpy` / `hexpansion_mgr.mpy`, typically `/apps/HexManager/`).  Upload it via the badge's USB file system, `mpremote`, or any other method you prefer.
+   - **The `.mpy` file must be placed in the `EEPROM` sub-folder of the HexManager app on the badge** (e.g. `/apps/TeamRobotmad_HexManager/EEPROM/myhex.mpy`).  Upload it via `mpremote`, or any other method you prefer.
+   - When HexManager programs the EEPROM it copies the file and **renames it to `app.mpy`** on the hexpansion EEPROM, so that Badge OS automatically detects and runs it when the hexpansion is inserted into a badge slot.
 
-5. **Upload `hexpansions.json`** to the badge, replacing the existing file at `/apps/HexManager/hexpansions.json`.
+5. **Upload `hexpansions.json`** to the badge, replacing the existing file at `/apps/TeamRobotmad_HexManager/hexpansions.json`.
 
-6. **Restart the badge app** – HexManager will load the updated file on next launch.  
+6. **Restart the badge app** – HexManager will load the updated file on next launch.
    If the file is missing or contains a JSON error, a warning message will be shown on screen and printed to the serial console.
 
 ### Install guide
@@ -90,7 +91,7 @@ Stable version available via [Tildagon App Directory](https://apps.badge.emfcamp
 If you have issues with any hexpansion fitted with an EEPROM, e.g. a software incompatibility with a particular badge software version, you can reset the EEPROM back to blank as follows:
 1) Plug in the hexpansion to Slot 1 (will work with any slot but you have to change the "1" below to the slot number.
 2) Connect your favourite Terminal program to the COM port presented by the Badge over USB.
-3) Press "Ctrl" & "C" simultaneously. i.e. "Ctrl-C" 
+3) Press "Ctrl" & "C" simultaneously. i.e. "Ctrl-C"
 4) You should now be presented with a prompt ">>>" which is called the python REPL. At this type in the following lines (the HexDrive EEPROM is 8kbytes so requires 16 bit addressing, hence the ```addrsize=16``` other hexpansions may use smaller EEPROMS where this is not required):
    ```
     from machine import I2C

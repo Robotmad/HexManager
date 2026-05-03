@@ -37,6 +37,7 @@ test raises.  Specific HexDrive sub-types are configured through
 """
 
 import contextlib
+import asyncio
 import sys
 
 from unittest.mock import patch
@@ -67,6 +68,22 @@ def _ensure_sim_initialized():
         _sim_initialized = True
 
 
+@pytest.fixture(autouse=True)
+def event_loop():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        yield loop
+    finally:
+        pending = [task for task in asyncio.all_tasks(loop) if not task.done()]
+        for task in pending:
+            task.cancel()
+        if pending:
+            loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+        loop.close()
+        asyncio.set_event_loop(None)
+
+
 # ---------------------------------------------------------------------------
 #  Generic fake-hexpansion helpers
 # ---------------------------------------------------------------------------
@@ -91,17 +108,13 @@ class _FakeHexDriveApp:
     exposes the tiny surface that ``_update_state_check`` probes:
 
     * ``config.port`` – the port number
-    * ``get_version()`` – returns the current HEXDRIVE_APP_VERSION
     """
 
     def __init__(self, port: int, version: int):
         _ensure_sim_initialized()
         from system.hexpansion.config import HexpansionConfig
         self.config = HexpansionConfig(port)
-        self._version = version
-
-    def get_version(self) -> int:
-        return self._version
+        self.VERSION = version
 
 
 # We need the class name to match "HexDriveApp" for _find_hexpansion_app
@@ -141,8 +154,8 @@ def install_fake_hexpansion(vid: int, pid: int, port: int,
     if app_class is None:
         app_class = HexDriveApp
     if app_version is None:
-        from sim.apps.HexManager.EEPROM.hexdrive import VERSION
-        app_version = VERSION
+        from sim.apps.HexManager.EEPROM.hexdrive import HexDriveApp as HexDriveRuntimeApp
+        app_version = HexDriveRuntimeApp.VERSION
 
     fake_app = app_class(port, app_version)
 

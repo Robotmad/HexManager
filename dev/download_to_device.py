@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-DEFAULT_APP_DIR_ON_DEVICE = ":apps/TeamRobotMad_HexManager"
+DEFAULT_APP_DIR_ON_DEVICE = ":apps/TeamRobotmad_HexManager"
 STATE_DIR = Path(".deploy_state")
 STATE_PATH = STATE_DIR / "test_device_download_state.json"
 MPREMOTE_COMMAND_TIMEOUT = 20
@@ -43,6 +43,7 @@ MODULES: tuple[ModuleSpec, ...] = (
     ModuleSpec(Path("serialise_mgr.py"), Path("serialise_mgr.mpy")),
     ModuleSpec(Path("EEPROM/hexdrive.py"), Path("EEPROM/hexdrive.mpy")),
     ModuleSpec(Path("EEPROM/gps.py"), Path("EEPROM/gps.mpy")),
+    ModuleSpec(Path("EEPROM/caffeine.py"), Path("EEPROM/caffeine.mpy"))
 )
 
 # Files copied to the device as-is (no compilation).
