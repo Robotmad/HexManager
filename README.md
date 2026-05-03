@@ -1,6 +1,6 @@
 # Hex(pansion) Manager app
 
-EMF Camp Badge App for managing hexpansion. Supports initialising, erasing and upgrading them.  Provies means to serialise a batch with unique ids.  Additional hexpansion varieties can easily be added.  The ides is that anyone can use this app rather than each developer who makes a hexpansion with software having to write this capability from scratch.
+EMF Camp Badge App for managing hexpansion. Supports initialising, erasing and upgrading them.  Provies means to serialise a batch with unique ids.  Additional hexpansion varieties can easily be added.  The idea is that anyone can use this app rather than each developer who makes a hexpansion with software having to write this capability from scratch.
 
 ## User guide
 
