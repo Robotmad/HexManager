@@ -11,13 +11,10 @@ from machine import UART, Pin
 class GPSApp(app.App):         # pylint: disable=no-member
     """ App to get GPS data from a GPS module connected to the hexpansion and display it on the badge. """
     VERSION = 1             # Increment this when making changes to the app that require the hexpansion app to be re-flashed with the new code.
-
     def __init__(self, config=None):
         super().__init__()
-
         if config is None:
             raise TypeError     # The app should not be run without a config as it won't work (shouldn't happen anyway if run from the hexpansion EEPROM)
-
         self.config = config    # Enables HexManager to check which port app is associated with
         self.t = config.pin[0]
         self.x = config.pin[1]
@@ -30,16 +27,13 @@ class GPSApp(app.App):         # pylint: disable=no-member
         self.z = -1             # Ticks timer - time since GPS reset, used to control when to release the GPS from reset after resetting it
                                 # and then used to time how long since last valid GPS fix.
                                 # also used as a flag (-1) to indicate that ForegroundPushEvent has not yet been emitted
-
         eventbus.on_async(RequestStopAppEvent, self.s, self)
-
 
     async def s(self, _e: RequestStopAppEvent):
         """ handle app stop """
         if _e.app == self:
             self.r.value(1)
             self.u.deinit()
-
 
     def update(self, _d):
         """ Update the app state - expire last_fix if it is too old """
@@ -60,12 +54,11 @@ class GPSApp(app.App):         # pylint: disable=no-member
             if self.z > 9999:
                 self.l = None
 
-
     def background_update(self, _d):
         """ Update the app state in the background - read GPS data """
         l = self.u.readline()
         if l:
-            print(l)
+            #print(l)
             try:
                 p = l.decode().strip().split(',')
                 if (p[0] != "$GPRMC" and p[0] != "$GNRMC") or p[2] != "A" or not p[3] or not p[5]:
@@ -82,7 +75,6 @@ class GPSApp(app.App):         # pylint: disable=no-member
             except (UnicodeError, ValueError, AttributeError):
                 pass
 
-
     def draw(self, _c):
         _c.font_size = 40   # not using defined sizes to save bytes in the mpy file
         _c.rgb(0, 0.2, 0).rectangle(-120, -120, 240, 240).fill()
@@ -92,8 +84,6 @@ class GPSApp(app.App):         # pylint: disable=no-member
             _c.move_to(-110, 40).text("Lon:" + self.n)
         else:
             _c.move_to(-110,  0).text("Searching...")
-
         button_labels(_c, cancel_label="Back")
-
 
 __app_export__ = GPSApp     #pylint: disable=invalid-name
