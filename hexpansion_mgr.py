@@ -470,12 +470,14 @@ class HexpansionMgr:
                     self._message_being_shown = True
                     self._sub_state = _SUB_CHECK
                 else:
+                    #Easisest way to cope with there being a new EEPROM image is to ask the user to reboop
+                    #otherwise we actually need to do a lot to get the old module and mount removed first...
                     #upgrade_text = "Upgraded" if result == _APP_EEPROM_RESULT_SUCCESSFUL_UPGRADE else "Programmed"
                     #app.notification = Notification(upgrade_text, port=self._upgrade_port)
                     # No point showing "Programmed" vs "Upgraded" as the Hexpansion Insertion Notification will cover it up
-                    eventbus.emit(HexpansionInsertionEvent(self._upgrade_port))
+                    #eventbus.emit(HexpansionInsertionEvent(self._upgrade_port))
                     #app.show_message([f"{upgrade_text}:", "Please", "reboop"], [(0,1,0),(1,1,1),(1,1,1)], "reboop")
-                    #self._reboop_required = True
+                    self._reboop_required = True
                     self._sub_state = _SUB_CHECK
             self._upgrade_port = None
         elif self._detected_port is not None:
