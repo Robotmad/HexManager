@@ -1,4 +1,5 @@
 """ Hexpansion & EEPROM Management Module for HexManager"""
+# pyright: reportAttributeAccessIssue=false
 #
 # Handles detection, initialisation, programming, upgrading and erasure of hexpansion EEPROMs.
 #
@@ -101,7 +102,7 @@ class HexpansionMgr:
         "App OK"
     ]
 
-    _LFS_META = 2   # Number of free blocks to reserve for LittleFS metadata when calculating how much space we have to write an app to the EEPROM (keep 1 block in hand for file create/sync, and 1 block in hand to ensure we don't fill the EEPROM completely and cause weird LittleFS behaviour)
+    _LFS_META = 2   # Number of free blocks to reserve for LittleFS metadata when calculating how much space we have to write an app to the EEPROM
 
     # Sub-states are defined at module level (_SUB_*); app-level state
     # routing is handled by the dispatch tables in app.py.
@@ -337,7 +338,7 @@ class HexpansionMgr:
         """Read the EEPROM header for the given port and set the default detail page."""
         try:
             self._port_selected_header = self._read_header(port)
-        except (OSError, RuntimeError, Exception) as e:
+        except (OSError, RuntimeError, Exception) as e:     # pylint: disable=broad-except
             print(f"H:Error reading header for port {port}: {e}")
             self._port_selected_header = None
         self._update_detail_page_count()
@@ -568,8 +569,9 @@ class HexpansionMgr:
             return
         if self._logging:
             print(f"H:Erasing EEPROM on port {erase_port}")
-        if self._hexpansion_type_by_slot[erase_port - 1] is not None:
-            self._hexpansion_init_type = self._hexpansion_type_by_slot[erase_port - 1]
+        erase_type = self._hexpansion_type_by_slot[erase_port - 1]
+        if erase_type is not None:
+            self._hexpansion_init_type = erase_type
         eeprom_page_size=app.HEXPANSION_TYPES[self._hexpansion_init_type].eeprom_page_size if self._hexpansion_init_type > 0 else _DEFAULT_EEPROM_PAGE_SIZE
         eeprom_total_size=app.HEXPANSION_TYPES[self._hexpansion_init_type].eeprom_total_size if self._hexpansion_init_type > 0 else _DEFAULT_EEPROM_TOTAL_SIZE
         erase_addr_len = self._hexpansion_eeprom_addr_len[erase_port - 1]
@@ -695,7 +697,9 @@ class HexpansionMgr:
             elif self._hexpansion_state_by_slot[self._port_selected - 1] == self.HEXPANSION_STATE_RECOGNISED_OLD_APP:
                 # The selected port has an old app, so we can upgrade it.
                 self._upgrade_port = self._port_selected
-                self._hexpansion_init_type = self._hexpansion_type_by_slot[self._upgrade_port - 1] if self._hexpansion_type_by_slot[self._upgrade_port - 1] is not None else 0
+                upgrade_type = self._hexpansion_type_by_slot[self._upgrade_port - 1]
+                if upgrade_type is not None:
+                    self._hexpansion_init_type = upgrade_type
                 app.notification = Notification("Upgrade?", port=self._upgrade_port)
                 self._sub_state = _SUB_UPGRADE_CONFIRM
             elif self._hexpansion_state_by_slot[self._port_selected - 1] >= self.HEXPANSION_STATE_FAULTY:
@@ -1068,7 +1072,7 @@ class HexpansionMgr:
 
         # Check how much free space we have after deleting the existing app, to try to give a more informative error if the new app doesn't fit.
         try:
-            statvfs = os.statvfs(mountpoint)
+            statvfs = os.statvfs(mountpoint)  # pylint: disable=no-member
             fs_block_size = statvfs[1] if len(statvfs) > 1 and statvfs[1] else statvfs[0]
             free_blocks = statvfs[4] if len(statvfs) > 4 else statvfs[3]
         except Exception as e:          # pylint: disable=broad-except
@@ -1085,9 +1089,7 @@ class HexpansionMgr:
         max_payload = self._lfs_max_payload(free_blocks, fs_block_size)
         if app_mpy_size > max_payload:
             print(
-                f"H:Not enough free space to write app.mpy for {app.HEXPANSION_TYPES[selected_type].name}"
-                f" on port {port}: largest writable file is {max_payload}bytes and the app needs {app_mpy_size}bytes"
-            )
+                f"H:app.mpy for {app.HEXPANSION_TYPES[selected_type].name} on port {port} needs {app_mpy_size}bytes: largest writable file is {max_payload}bytes")
             return _APP_EEPROM_RESULT_FAILURE
 
         if self._logging:
