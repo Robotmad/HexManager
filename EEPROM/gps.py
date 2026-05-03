@@ -2,9 +2,10 @@
 # Minimal functionality to get a GPS fix and display it
 #
 import app
-from events.input import Buttons, BUTTON_TYPES, ButtonDownEvent
+from app_components.tokens import button_labels
+from events.input import Buttons, BUTTON_TYPES
 from system.eventbus import eventbus
-from system.scheduler.events import RequestForegroundPopEvent, RequestForegroundPushEvent, RequestStopAppEvent
+from system.scheduler.events import RequestForegroundPushEvent, RequestStopAppEvent
 from machine import UART, Pin
 
 class GPSApp(app.App):         # pylint: disable=no-member
@@ -36,7 +37,6 @@ class GPSApp(app.App):         # pylint: disable=no-member
     async def s(self, _e: RequestStopAppEvent):
         """ handle app stop """
         if _e.app == self:
-            print("s")
             self.r.value(1)
             self.u.deinit()
 
@@ -44,18 +44,21 @@ class GPSApp(app.App):         # pylint: disable=no-member
     def update(self, _d):
         """ Update the app state - expire last_fix if it is too old """
         if self.b.get(BUTTON_TYPES["CANCEL"]):
-            print("c")
             self.b.clear()
             self.minimise()
+        elif self.b.get(BUTTON_TYPES["CONFIRM"]):
+            self.b.clear()
+            eventbus.emit(RequestStopAppEvent(self))
 
         if self.r.value():
             self.z +=_d
             if self.z > 100:
                 self.r.value(0)
+
         if not self.f:
-            print("f")
             eventbus.emit(RequestForegroundPushEvent(self))
             self.f = True
+
         if self.l:
             self.y += _d
             if self.y > 10000:
@@ -85,6 +88,7 @@ class GPSApp(app.App):         # pylint: disable=no-member
     def draw(self, _c):
         _c.rgb(0, 0.2, 0).rectangle(-120, -120, 240, 240).fill()
         _c.rgb(0, 1, 0).move_to(-100, -10).text(self.l if self.l else "Search")
+        button_labels(_c, confirm_label="Quit", cancel_label="Back")
 
 
 __app_export__ = GPSApp     #pylint: disable=invalid-name
