@@ -42,6 +42,7 @@ MODULES: tuple[ModuleSpec, ...] = (
     ModuleSpec(Path("hexpansion_mgr.py"), Path("hexpansion_mgr.mpy")),
     ModuleSpec(Path("serialise_mgr.py"), Path("serialise_mgr.mpy")),
     ModuleSpec(Path("EEPROM/hexdrive.py"), Path("EEPROM/hexdrive.mpy")),
+    ModuleSpec(Path("vendor/HexDrive2/hexdrive2.py"), Path("EEPROM/hexdrive2.mpy")),
     ModuleSpec(Path("EEPROM/gps.py"), Path("EEPROM/gps.mpy")),
     ModuleSpec(Path("EEPROM/caffeine.py"), Path("EEPROM/caffeine.mpy"))
 )

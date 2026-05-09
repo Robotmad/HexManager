@@ -49,17 +49,17 @@
     {
       "pid": "0x10CB", "vid": "0xCBCB", "name": "HexDriveV2", "sub_type": "Uncommitted",
       "eeprom_total_size": 32768, "eeprom_page_size": 64,
-      "app_mpy_name": "hexdrive", "app_mpy_version": 6, "app_name": "HexDriveApp"
+      "app_mpy_name": "hexdrive2", "app_mpy_version": 7, "app_name": "HexDriveApp"
     },
     {
       "pid": "0x10CA", "vid": "0xCBCB", "name": "HexDriveV2", "sub_type": "2 Motor",
       "eeprom_total_size": 32768, "eeprom_page_size": 64,
-      "app_mpy_name": "hexdrive", "app_mpy_version": 6, "app_name": "HexDriveApp"
+      "app_mpy_name": "hexdrive2", "app_mpy_version": 7, "app_name": "HexDriveApp"
     },
     {
       "pid": "0x10CC", "vid": "0xCBCB", "name": "HexDriveV2", "sub_type": "2 Servo",
       "eeprom_total_size": 32768, "eeprom_page_size": 64,
-      "app_mpy_name": "hexdrive", "app_mpy_version": 6, "app_name": "HexDriveApp"
+      "app_mpy_name": "hexdrive2", "app_mpy_version": 7, "app_name": "HexDriveApp"
     },
     {
       "pid": "0x3000", "vid": "0xCBCB", "name": "HexTest",

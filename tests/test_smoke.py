@@ -1,6 +1,8 @@
 import json
+import re
 import sys
 import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -57,28 +59,43 @@ def test_hexdrive_app_init(port):
     HexDriveApp(config)
 
 def test_app_versions_match():
-    """Verify that the HexDrive app_mpy_version recorded in hexpansions.json matches
-    the HexDriveApp.VERSION constant in EEPROM/hexdrive.py.
+    """Verify that hexpansions.json records the correct source version per app artifact.
 
     hexpansions.json is the authoritative record of which .mpy version should be
-    programmed onto the EEPROM.  If someone bumps hexdrive.py VERSION without
-    updating hexpansions.json (or vice-versa) this test will catch the mismatch.
+    programmed onto the EEPROM. If someone bumps hexdrive.py or hexdrive2.py
+    without updating hexpansions.json (or vice-versa) this test will catch it.
     """
-    import json
     import os
     from sim.apps.HexManager.EEPROM.hexdrive import HexDriveApp
+
+    def extract_version(path: Path) -> int:
+        content = path.read_text(encoding="utf-8")
+        match = re.search(r"^\s*VERSION\s*=\s*(\d+)", content, re.MULTILINE)
+        assert match is not None, f"Could not find VERSION in {path}"
+        return int(match.group(1))
 
     json_path = os.path.join(os.path.dirname(__file__), "..", "hexpansions.json")
     with open(json_path) as f:
         data = json.load(f)
 
+    expected_versions = {
+        "hexdrive": HexDriveApp.VERSION,
+        "hexdrive2": extract_version(
+            Path(__file__).resolve().parents[1] / "vendor" / "HexDrive2" / "hexdrive2.py"
+        ),
+    }
+
     hexdrive_entries = [h for h in data["hexpansions"]
                         if h.get("app_name") == "HexDriveApp" and h.get("app_mpy_version") is not None]
     assert hexdrive_entries, "No HexDriveApp entries with app_mpy_version found in hexpansions.json"
     for entry in hexdrive_entries:
-        assert entry["app_mpy_version"] == HexDriveApp.VERSION, (
+        app_mpy_name = entry.get("app_mpy_name")
+        assert app_mpy_name in expected_versions, (
+            f"Unexpected app_mpy_name for HexDriveApp entry pid={entry['pid']}: {app_mpy_name}"
+        )
+        assert entry["app_mpy_version"] == expected_versions[app_mpy_name], (
             f"hexpansions.json entry pid={entry['pid']} has app_mpy_version="
-            f"{entry['app_mpy_version']} but EEPROM/hexdrive.py VERSION={HexDriveApp.VERSION}"
+            f"{entry['app_mpy_version']} but {app_mpy_name}.py VERSION={expected_versions[app_mpy_name]}"
         )
 
 def test_hexdrive_type_pids_consistent():
