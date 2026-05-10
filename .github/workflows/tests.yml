@@ -9,14 +9,20 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.10"]
     steps:
+    - name: Checkout badge repo matching PR branch when available
+      run: |
+        BRANCH="${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}"
+        if git ls-remote --exit-code --heads https://github.com/TeamRobotmad/badge-2024-software.git "$BRANCH"; then
+          echo "REF=$BRANCH" >> "$GITHUB_ENV"
+        else
+          echo "REF=" >> "$GITHUB_ENV"
+        fi
+
     - uses: actions/checkout@v4
       with:
         repository: TeamRobotmad/badge-2024-software
-
+        ref: ${{ env.REF }}
 
     - name: Manage submodule
       run: |
