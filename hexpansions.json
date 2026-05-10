@@ -66,6 +66,11 @@
       "eeprom_total_size": 65536, "eeprom_page_size": 128
     },
     {
+      "pid": "0x5000", "vid": "0xCBCB", "name": "HexCurrent",
+      "eeprom_total_size": 65536, "eeprom_page_size": 128,
+      "app_mpy_name": "hexcurrent", "app_mpy_version": 1, "app_name": "HexCurrentApp"
+    },
+    {
       "pid": "0x4000", "vid": "0xCBCB", "name": "HexDiag",
       "eeprom_total_size": 65536, "eeprom_page_size": 128
     },

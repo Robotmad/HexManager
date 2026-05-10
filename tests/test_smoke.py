@@ -59,10 +59,10 @@ def test_hexdrive_app_init(port):
     HexDriveApp(config)
 
 def test_app_versions_match():
-    """Verify that hexpansions.json records the correct source version per app artifact.
+    """Verify that hexpansions.json records the correct source version per vendored artifact.
 
     hexpansions.json is the authoritative record of which .mpy version should be
-    programmed onto the EEPROM. If someone bumps hexdrive.py or hexdrive2.py
+    programmed onto the EEPROM. If someone bumps a vendored app source file
     without updating hexpansions.json (or vice-versa) this test will catch it.
     """
     import os
@@ -83,15 +83,20 @@ def test_app_versions_match():
         "hexdrive2": extract_version(
             Path(__file__).resolve().parents[1] / "vendor" / "HexDrive2" / "hexdrive2.py"
         ),
+        "hexcurrent": extract_version(
+            Path(__file__).resolve().parents[1] / "vendor" / "HexCurrent" / "hexcurrent.py"
+        ),
     }
 
-    hexdrive_entries = [h for h in data["hexpansions"]
-                        if h.get("app_name") == "HexDriveApp" and h.get("app_mpy_version") is not None]
-    assert hexdrive_entries, "No HexDriveApp entries with app_mpy_version found in hexpansions.json"
-    for entry in hexdrive_entries:
+    versioned_entries = [
+        entry for entry in data["hexpansions"]
+        if entry.get("app_mpy_name") in expected_versions and entry.get("app_mpy_version") is not None
+    ]
+    assert versioned_entries, "No recognised versioned app entries found in hexpansions.json"
+    for entry in versioned_entries:
         app_mpy_name = entry.get("app_mpy_name")
         assert app_mpy_name in expected_versions, (
-            f"Unexpected app_mpy_name for HexDriveApp entry pid={entry['pid']}: {app_mpy_name}"
+            f"Unexpected app_mpy_name for versioned entry pid={entry['pid']}: {app_mpy_name}"
         )
         assert entry["app_mpy_version"] == expected_versions[app_mpy_name], (
             f"hexpansions.json entry pid={entry['pid']} has app_mpy_version="

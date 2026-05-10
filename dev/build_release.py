@@ -25,6 +25,7 @@ RUNTIME_MODULES = {
 
 EXTERNAL_MODULES = (
     ModuleSpec(Path("vendor/HexDrive2/hexdrive2.py"), Path("EEPROM/hexdrive2.mpy")),
+    ModuleSpec(Path("vendor/HexCurrent/hexcurrent.py"), Path("EEPROM/hexcurrent.mpy")),
 )
 
 files_to_mpy = {Path(f"{module}.py") for module in RUNTIME_MODULES}
@@ -38,7 +39,7 @@ files_to_keep = {
 files_to_keep.update({Path(f"{module}.mpy") for module in RUNTIME_MODULES})
 files_to_keep.update({spec.artifact for spec in EXTERNAL_MODULES})
 
-IGNORED_SOURCE_DIRS = (Path("vendor/HexDrive2"),)
+IGNORED_SOURCE_DIRS = (Path("vendor/HexDrive2"), Path("vendor/HexCurrent"))
 
 def _construct_filepaths(dirname, filenames):
     return [Path(dirname, filename) for filename in filenames]
