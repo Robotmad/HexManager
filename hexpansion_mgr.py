@@ -17,12 +17,13 @@ import time
 import vfs
 from app_components.notification import Notification
 from app_components.tokens import label_font_size, button_labels
+from eeprom_i2c import EEPROM
+from eeprom_partition import EEPROMPartition
 from events.input import BUTTON_TYPES
 from machine import I2C
 from system.eventbus import eventbus
 from system.hexpansion.events import HexpansionInsertionEvent
 from system.hexpansion.header import HexpansionHeader, write_header
-from system.hexpansion.util import get_hexpansion_block_devices, detect_eeprom_addr
 from system.scheduler import scheduler
 
 _NUM_HEXPANSION_SLOTS = 6
@@ -30,6 +31,8 @@ _NUM_HEXPANSION_SLOTS = 6
 # EEPROM Constants
 _DEFAULT_EEPROM_PAGE_SIZE = 32
 _DEFAULT_EEPROM_TOTAL_SIZE = 64 * 1024 // 8
+_EEPROM_PAGE_SIZE_CANDIDATES = (16, 32, 64, 128, 256)
+_EEPROM_TOTAL_SIZE_CANDIDATES = (256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536)
 
 _IS_SIMULATOR = sys.platform != "esp32"
 
@@ -42,8 +45,9 @@ _SUB_ERASE           = 4           # Hexpansion EEPROM erasing in progress
 _SUB_UPGRADE_CONFIRM = 5           # Hexpansion ready for App upgrade
 _SUB_PROGRAMMING     = 6           # Hexpansion EEPROM programming (Initialsation or Upgrade) in progress
 _SUB_PORT_SELECT     = 7           # User selecting which hexpansion to erase (if multiple) in order to free up a slot for initialisation or upgrade
-_SUB_DONE            = 8           # Final state after successful initialisation or upgrade, before returning to menu
-_SUB_EXIT            = 9           # State for exiting from interactive mode back to menu)
+_SUB_SCANNING        = 8           # Manual blank-EEPROM scan in progress after showing a wait screen
+_SUB_DONE            = 9           # Final state after successful initialisation or upgrade, before returning to menu
+_SUB_EXIT            = 10          # State for exiting from interactive mode back to menu)
 
 
 # EEPROM app programming outcomes
@@ -65,6 +69,50 @@ _MODE_INTERACTIVE = 3   # Interactive mode for user interactions for initialisat
 def init_settings(s, MySetting):        # pylint: disable=unused-argument, invalid-name
     """Register hexpansion-management-specific settings in the shared settings dict."""
     return
+
+
+def detect_eeprom_addr(i2c):
+    devices = i2c.scan()
+    if 0x57 in devices and 0x50 not in devices:
+        return (0x57, 2)
+    if (
+        0x57 in devices
+        and 0x56 in devices
+        and 0x55 in devices
+        and 0x54 in devices
+        and 0x53 in devices
+        and 0x52 in devices
+        and 0x51 in devices
+        and 0x50 in devices
+    ):
+        return (0x50, 1)
+    if 0x50 in devices:
+        return (0x50, 2)
+    return (None, None)
+
+
+def get_hexpansion_block_devices(i2c, header, addr=0x50, addr_len=2):
+    if header.eeprom_total_size > 2 ** (8 * addr_len):
+        chip_size = 2 ** (8 * addr_len)
+    else:
+        chip_size = header.eeprom_total_size
+    if header.eeprom_total_size >= 8192:
+        block_size = 9
+    else:
+        block_size = 6
+    eep = EEPROM(
+        i2c=i2c,
+        chip_size=chip_size,
+        page_size=header.eeprom_page_size,
+        block_size=block_size,
+        addrsize=addr_len * 8,
+    )
+    partition = EEPROMPartition(
+        eep=eep,
+        offset=header.fs_offset,
+        length=header.eeprom_total_size - header.fs_offset,
+    )
+    return eep, partition
 
 
 # ---- Hexpansion management -------------------------------------------------
@@ -122,12 +170,16 @@ class HexpansionMgr:
         self._hexpansion_state_by_slot: list[int] = [self.HEXPANSION_STATE_UNKNOWN]*_NUM_HEXPANSION_SLOTS
         self._hexpansion_eeprom_addr_len: list[int | None] = [None]*_NUM_HEXPANSION_SLOTS
         self._hexpansion_eeprom_addr: list[int | None] = [None]*_NUM_HEXPANSION_SLOTS
+        self._hexpansion_eeprom_total_size: list[int | None] = [None]*_NUM_HEXPANSION_SLOTS
+        self._hexpansion_eeprom_page_size: list[int | None] = [None]*_NUM_HEXPANSION_SLOTS
         self._hexpansion_init_type: int = 0
         self._detected_port: int | None = None
         self._waiting_app_port: int | None = None
         self._erase_port: int | None = None
         self._upgrade_port: int | None = None
+        self._scan_port: int | None = None
         self._ports_to_initialise: set[int] = set() # ports with blank EEPROM which could be initialised
+        self._ports_initialise_declined: set[int] = set() # blank EEPROMs the user already declined to initialise
         self._ports_to_check_app: set[int] = set()  # ports with recognised hexpansion type which should be checked for the correct app before being used
         self._reboop_required: bool = False
         self._hexpansion_serial_number: int | None = None
@@ -166,6 +218,128 @@ class HexpansionMgr:
         """Set the logging state."""
         self._logging = value
 
+    @staticmethod
+    def _mem_addr_bytes(mem_addr: int, addr_len: int) -> bytes:
+        return bytes((mem_addr >> shift) & 0xFF for shift in range((addr_len - 1) * 8, -1, -8))
+
+    @staticmethod
+    def _mem_target(addr: int, addr_len: int, mem_addr: int) -> tuple[int, int]:
+        mem_addr_mask = (1 << (addr_len * 8)) - 1
+        return addr | (mem_addr >> (8 * addr_len)), mem_addr & mem_addr_mask
+
+    @classmethod
+    def _write_eeprom_bytes(cls, i2c, addr: int, addr_len: int, mem_addr: int, data: bytes):
+        device_addr, masked_mem_addr = cls._mem_target(addr, addr_len, mem_addr)
+        i2c.writeto_mem(device_addr, masked_mem_addr, data, addrsize=8 * addr_len)
+        while True:
+            try:
+                if i2c.writeto(device_addr, cls._mem_addr_bytes(masked_mem_addr, addr_len)):
+                    return
+            except OSError:
+                pass
+            time.sleep_ms(1)
+
+    @classmethod
+    def _read_eeprom_bytes(cls, i2c, addr: int, addr_len: int, mem_addr: int, size: int) -> bytes:
+        device_addr, masked_mem_addr = cls._mem_target(addr, addr_len, mem_addr)
+        return i2c.readfrom_mem(device_addr, masked_mem_addr, size, addrsize=8 * addr_len)
+
+    def _clear_eeprom_geometry(self, port: int):
+        self._hexpansion_eeprom_total_size[port - 1] = None
+        self._hexpansion_eeprom_page_size[port - 1] = None
+
+    def _cache_eeprom_geometry(self, port: int, total_size: int, page_size: int):
+        self._hexpansion_eeprom_total_size[port - 1] = total_size
+        self._hexpansion_eeprom_page_size[port - 1] = page_size
+
+    def _get_eeprom_geometry(self, port: int) -> tuple[int | None, int | None]:
+        if port not in range(1, _NUM_HEXPANSION_SLOTS + 1):
+            return None, None
+        return self._hexpansion_eeprom_total_size[port - 1], self._hexpansion_eeprom_page_size[port - 1]
+
+    def _has_eeprom_geometry(self, port: int) -> bool:
+        total_size, page_size = self._get_eeprom_geometry(port)
+        return total_size is not None and page_size is not None
+
+    def _geometry_for_type(self, type_index: int | None) -> tuple[int | None, int | None]:
+        if type_index is None or type_index < 0 or type_index >= len(self._app.HEXPANSION_TYPES):
+            return None, None
+        hexpansion_type = self._app.HEXPANSION_TYPES[type_index]
+        return hexpansion_type.eeprom_total_size, hexpansion_type.eeprom_page_size
+
+    def _geometry_for_port(self, port: int, fallback_type_index: int | None = None) -> tuple[int | None, int | None]:
+        total_size, page_size = self._get_eeprom_geometry(port)
+        if total_size is not None and page_size is not None:
+            return total_size, page_size
+        return self._geometry_for_type(fallback_type_index)
+
+    def _probe_eeprom_page_size(self, i2c, addr: int, addr_len: int) -> int | None:
+        for page_size in _EEPROM_PAGE_SIZE_CANDIDATES:
+            pattern = bytes(((page_size + index + 1) & 0xFF) for index in range(page_size + 1))
+            try:
+                self._write_eeprom_bytes(i2c, addr, addr_len, 0, pattern)
+                readback = self._read_eeprom_bytes(i2c, addr, addr_len, 0, len(pattern))
+            except OSError as e:
+                print(f"H:Error probing EEPROM page size: {e}")
+                return None
+            if readback != pattern:
+                return page_size
+        return _EEPROM_PAGE_SIZE_CANDIDATES[-1]
+
+    def _probe_eeprom_total_size(self, i2c, addr: int, addr_len: int) -> int | None:
+        baseline = b"\xA5"
+        probe = b"\x5A"
+        for total_size in _EEPROM_TOTAL_SIZE_CANDIDATES:
+            try:
+                self._write_eeprom_bytes(i2c, addr, addr_len, 0, baseline)
+                self._write_eeprom_bytes(i2c, addr, addr_len, total_size, probe)
+            except OSError:
+                return total_size
+            try:
+                if self._read_eeprom_bytes(i2c, addr, addr_len, 0, 1) == probe:
+                    return total_size
+            except OSError as e:
+                print(f"H:Error probing EEPROM total size: {e}")
+                return None
+        return None
+
+    def _detect_eeprom_geometry(self, port: int, force: bool = False) -> tuple[int | None, int | None]:
+        if not force and self._has_eeprom_geometry(port):
+            return self._get_eeprom_geometry(port)
+        try:
+            i2c = I2C(port)
+        except Exception as e:      # pylint: disable=broad-except
+            print(f"H:Error opening I2C port {port}: {e}")
+            return None, None
+        try:
+            header = self._read_header(port, i2c=i2c)
+        except RuntimeError:
+            header = None
+        except OSError as e:
+            print(f"H:Error probing EEPROM geometry on port {port}: {e}")
+            return None, None
+        except Exception as e:      # pylint: disable=broad-except
+            print(f"H:Error reading EEPROM geometry cache on port {port}: {e}")
+            return None, None
+        if header is not None:
+            return header.eeprom_total_size, header.eeprom_page_size
+
+        addr_len = self._hexpansion_eeprom_addr_len[port - 1]
+        addr = self._hexpansion_eeprom_addr[port - 1]
+        if addr_len is None or addr is None:
+            return None, None
+
+        page_size = self._probe_eeprom_page_size(i2c, addr, addr_len)
+        if page_size is None:
+            return None, None
+        total_size = self._probe_eeprom_total_size(i2c, addr, addr_len)
+        if total_size is None:
+            return None, None
+        if not self._erase_eeprom(port, addr, addr_len, total_size, page_size):
+            return None, None
+        self._cache_eeprom_geometry(port, total_size, page_size)
+        return total_size, page_size
+
     def probe_eeprom(self, port: int) -> tuple[int, HexpansionHeader | None]:
         """Probe a port and report whether its EEPROM is blank, missing, or already written."""
         try:
@@ -199,12 +373,14 @@ class HexpansionMgr:
         erase_addr = self._hexpansion_eeprom_addr[port - 1]
         if erase_addr_len is None or erase_addr is None:
             return False
-        hexpansion_type = self._app.HEXPANSION_TYPES[type_index]
+        eeprom_total_size, eeprom_page_size = self._geometry_for_port(port, type_index)
+        if eeprom_total_size is None or eeprom_page_size is None:
+            return False
         return self._erase_eeprom(port,
                                   erase_addr,
                                   erase_addr_len,
-                                  hexpansion_type.eeprom_total_size,
-                                  hexpansion_type.eeprom_page_size)
+                                  eeprom_total_size,
+                                  eeprom_page_size)
 
 
     def prepare_eeprom_for_type(self, port: int, type_index: int, unique_id: int | None) -> bool:
@@ -248,11 +424,14 @@ class HexpansionMgr:
         self._waiting_app_port = None
         self._erase_port = None
         self._upgrade_port = None
+        self._scan_port = None
         self._hexpansion_app_startup_timer = 0
         self._hexpansion_type_by_slot = [None] * _NUM_HEXPANSION_SLOTS
         self._hexpansion_state_by_slot = [self.HEXPANSION_STATE_UNKNOWN] * _NUM_HEXPANSION_SLOTS
         self._hexpansion_eeprom_addr_len = [None] * _NUM_HEXPANSION_SLOTS
         self._hexpansion_eeprom_addr = [None] * _NUM_HEXPANSION_SLOTS
+        self._hexpansion_eeprom_total_size = [None] * _NUM_HEXPANSION_SLOTS
+        self._hexpansion_eeprom_page_size = [None] * _NUM_HEXPANSION_SLOTS
         self._port_selected_header = None
         self._hexpansion_serial_number = None
 
@@ -274,18 +453,24 @@ class HexpansionMgr:
         port = event.port
         self._hexpansion_type_by_slot[port - 1] = None
         self._hexpansion_state_by_slot[port - 1] = self.HEXPANSION_STATE_EMPTY
+        self._hexpansion_eeprom_addr_len[port - 1] = None
+        self._hexpansion_eeprom_addr[port - 1] = None
+        self._clear_eeprom_geometry(port)
+        self._ports_initialise_declined.discard(port)
+        scanning_port_removed = self._scan_port == port
         if port in self._ports_to_initialise:
             self._ports_to_initialise.remove(port)
         self._ports_to_check_app.discard(port)
+        if scanning_port_removed:
+            self._scan_port = None
 
         if (self._detected_port     is not None and port == self._detected_port) or \
             (self._upgrade_port     is not None and port == self._upgrade_port) or \
             (self._waiting_app_port is not None and port == self._waiting_app_port) or \
             (self._erase_port       is not None and port == self._erase_port) or \
+            scanning_port_removed or \
             (self._port_selected != 0           and port == self._port_selected):
             # The port from which a hexpansion has been removed is significant
-            self._hexpansion_eeprom_addr_len[port - 1] = None
-            self._hexpansion_eeprom_addr[port - 1] = None
             app.hexpansion_update_required = True
             if self._logging:
                 print(f"H:Hexpansion removed from port {port}")
@@ -294,6 +479,10 @@ class HexpansionMgr:
     async def _handle_insertion(self, event):
         if self._app.serialise_active:
             return
+        self._ports_initialise_declined.discard(event.port)
+        self._hexpansion_eeprom_addr_len[event.port - 1] = None
+        self._hexpansion_eeprom_addr[event.port - 1] = None
+        self._clear_eeprom_geometry(event.port)
         if self._check_port_for_known_hexpansions(event.port) or event.port == self._port_selected:
             # A known hexpansion type has been detected on the inserted port, so trigger an update of
             # the hexpansion management state machine to handle it. Or the inserted port is the one
@@ -338,7 +527,9 @@ class HexpansionMgr:
         """Read the EEPROM header for the given port and set the default detail page."""
         try:
             self._port_selected_header = self._read_header(port)
-        except (OSError, RuntimeError, Exception) as e:     # pylint: disable=broad-except
+        except RuntimeError:
+            self._port_selected_header = None
+        except (OSError, Exception) as e:     # pylint: disable=broad-except
             print(f"H:Error reading header for port {port}: {e}")
             self._port_selected_header = None
         self._update_detail_page_count()
@@ -354,6 +545,9 @@ class HexpansionMgr:
                 # Unrecognised type - show vid/pid page and EEPROM page but not details page
                 self._port_detail_page_count = 2
                 self._port_detail_page = self._PAGE_VID_PID
+            elif state_idx == self.HEXPANSION_STATE_BLANK:
+                self._port_detail_page_count = 1
+                self._port_detail_page = self._PAGE_EEPROM
             elif state_idx >= self.HEXPANSION_STATE_RECOGNISED:
                 # Recognised type - show vid/pid page and details page
                 self._port_detail_page_count = 3
@@ -413,6 +607,8 @@ class HexpansionMgr:
                 self._update_state_upgrade(delta)
             elif self._sub_state == _SUB_PROGRAMMING:
                 self._update_state_programming(delta)
+            elif self._sub_state == _SUB_SCANNING:
+                self._update_state_scanning(delta)
             elif self._sub_state == _SUB_PORT_SELECT:
                 self._update_state_port_select(delta)
             elif self._sub_state == _SUB_CHECK:
@@ -521,6 +717,9 @@ class HexpansionMgr:
             app.button_states.clear()
             if self._logging:
                 print("H:Initialise Cancelled")
+            if self._detected_port is not None:
+                self._ports_initialise_declined.add(self._detected_port)
+                self._ports_to_initialise.discard(self._detected_port)
             self._detected_port = None
             self._sub_state = _SUB_INIT if self._mode == _MODE_INIT else _SUB_CHECK
         elif app.button_states.get(BUTTON_TYPES["UP"]):
@@ -572,8 +771,11 @@ class HexpansionMgr:
         erase_type = self._hexpansion_type_by_slot[erase_port - 1]
         if erase_type is not None:
             self._hexpansion_init_type = erase_type
-        eeprom_page_size=app.HEXPANSION_TYPES[self._hexpansion_init_type].eeprom_page_size if self._hexpansion_init_type > 0 else _DEFAULT_EEPROM_PAGE_SIZE
-        eeprom_total_size=app.HEXPANSION_TYPES[self._hexpansion_init_type].eeprom_total_size if self._hexpansion_init_type > 0 else _DEFAULT_EEPROM_TOTAL_SIZE
+        eeprom_total_size, eeprom_page_size = self._geometry_for_port(erase_port, self._hexpansion_init_type)
+        if eeprom_total_size is None:
+            eeprom_total_size = _DEFAULT_EEPROM_TOTAL_SIZE
+        if eeprom_page_size is None:
+            eeprom_page_size = _DEFAULT_EEPROM_PAGE_SIZE
         erase_addr_len = self._hexpansion_eeprom_addr_len[erase_port - 1]
         erase_addr = self._hexpansion_eeprom_addr[erase_port - 1]
         if erase_addr_len is None or erase_addr is None:
@@ -692,6 +894,7 @@ class HexpansionMgr:
             if self._hexpansion_state_by_slot[self._port_selected - 1] == self.HEXPANSION_STATE_BLANK:
                 # The selected port has a blank EEPROM, so we can initialise it without erasing first.
                 self._detected_port = self._port_selected
+                self._ports_initialise_declined.discard(self._detected_port)
                 app.notification = Notification("Init?", port=self._detected_port)
                 self._sub_state = _SUB_DETECTED
             elif self._hexpansion_state_by_slot[self._port_selected - 1] == self.HEXPANSION_STATE_RECOGNISED_OLD_APP:
@@ -714,12 +917,32 @@ class HexpansionMgr:
             app.refresh = True
         elif app.button_states.get(BUTTON_TYPES["DOWN"]):
             app.button_states.clear()
-            if self._port_detail_page_count > 1:
+            if self._hexpansion_state_by_slot[self._port_selected - 1] == self.HEXPANSION_STATE_BLANK and not self._has_eeprom_geometry(self._port_selected):
+                self._scan_port = self._port_selected
+                self._sub_state = _SUB_SCANNING
+            elif self._port_detail_page_count > 1:
                 self._port_detail_page = (self._port_detail_page + 1) % self._port_detail_page_count
             app.refresh = True
         elif app.button_states.get(BUTTON_TYPES["CANCEL"]):
             app.button_states.clear()
             self._sub_state = _SUB_EXIT
+
+
+    def _update_state_scanning(self, delta: int):   # pylint: disable=unused-argument
+        app = self._app
+        scan_port = self._scan_port
+        if scan_port is None:
+            self._sub_state = _SUB_PORT_SELECT if self._mode == _MODE_INTERACTIVE else _SUB_CHECK
+            return
+        total_size, page_size = self._detect_eeprom_geometry(scan_port)
+        if total_size is not None and page_size is not None:
+            app.notification = Notification("Scanned", port=scan_port)
+        else:
+            app.notification = Notification("Failed", port=scan_port)
+        self._read_port_header(scan_port)
+        self._scan_port = None
+        self._sub_state = _SUB_PORT_SELECT if self._mode == _MODE_INTERACTIVE else _SUB_CHECK
+        app.refresh = True
 
 
     # ------------------------------------------------------------------
@@ -751,6 +974,10 @@ class HexpansionMgr:
             return True
         elif self._sub_state == _SUB_PORT_SELECT:
             self._draw_port_select(ctx)
+            return True
+        elif self._sub_state == _SUB_SCANNING:
+            scan_port = self._scan_port if self._scan_port is not None else self._port_selected
+            app.draw_message(ctx, [f"Slot {scan_port}", "Blank EEPROM", "Scanning...", "Please wait"], [(1, 1, 0), (1, 0, 1), (0, 1, 1), (1, 1, 1)], label_font_size)
             return True
         elif self._sub_state == _SUB_ERASE_CONFIRM:
             if self._erase_port is None:
@@ -795,6 +1022,7 @@ class HexpansionMgr:
         """Draw the port-select screen with paged details."""
         app = self._app
         hdr = self._port_selected_header
+        total_size, page_size = self._get_eeprom_geometry(self._port_selected)
         hexpansion_state = self.HEXPANSION_STATE_NAMES[self._hexpansion_state_by_slot[self._port_selected - 1]]
         if self._hexpansion_state_by_slot[self._port_selected - 1] > self.HEXPANSION_STATE_BLANK:
             hexpansion_name = self._type_name_for_port(self._port_selected, None)
@@ -807,7 +1035,13 @@ class HexpansionMgr:
         else:
             # Common header lines for all pages
             page = self._port_detail_page
-            lines = [f"Slot {self._port_selected}-{self._PAGE_NAMES[page]}", hdr.friendly_name if hdr is not None else hexpansion_name]
+            if self._hexpansion_state_by_slot[self._port_selected - 1] > self.HEXPANSION_STATE_BLANK and hexpansion_name:
+                page_title = hexpansion_name
+            elif hdr is not None and hdr.friendly_name:
+                page_title = hdr.friendly_name
+            else:
+                page_title = "Blank EEPROM" if self._hexpansion_state_by_slot[self._port_selected - 1] == self.HEXPANSION_STATE_BLANK else hexpansion_name
+            lines = [f"Slot {self._port_selected}-{self._PAGE_NAMES[page]}", page_title]
             colours = [(1, 1, 0), (1, 0, 1)]
             if page == self._PAGE_VID_PID:
                 # VID / PID page
@@ -821,6 +1055,10 @@ class HexpansionMgr:
                 # EEPROM parameters page
                 if hdr is not None:
                     lines += [f"Size: {hdr.eeprom_total_size} Bytes", f"Page: {hdr.eeprom_page_size} Bytes"]
+                    colours += [(0, 1, 1), (0, 1, 1)]
+                else:
+                    lines += [f"Size: {total_size} Bytes" if total_size is not None else "Size: Unknown",
+                              f"Page: {page_size} Bytes" if page_size is not None else "Page: Unknown"]
                     colours += [(0, 1, 1), (0, 1, 1)]
             else: # page == self._PAGE_DETAILS:
                 # Details page (only when page_count == 3)
@@ -863,8 +1101,11 @@ class HexpansionMgr:
         confirm_label = "Init" if self._hexpansion_state_by_slot[self._port_selected - 1] == self.HEXPANSION_STATE_BLANK else \
                         "Upgrade" if self._hexpansion_state_by_slot[self._port_selected - 1] == self.HEXPANSION_STATE_RECOGNISED_OLD_APP else \
                         "Erase" if self._hexpansion_state_by_slot[self._port_selected - 1] >= self.HEXPANSION_STATE_FAULTY else ""
-        button_labels(ctx, confirm_label=confirm_label, left_label="<Slot", right_label="Slot>",
-                    up_label=up_label, down_label=down_label, cancel_label="Back")
+        if self._hexpansion_state_by_slot[self._port_selected - 1] == self.HEXPANSION_STATE_BLANK and not self._has_eeprom_geometry(self._port_selected):
+            down_label = "Scan"
+        right_label = "Slot>"
+        button_labels(ctx, confirm_label=confirm_label, left_label="<Slot", right_label=right_label,
+                  up_label=up_label, down_label=down_label, cancel_label="Back")
 
 
 
@@ -913,6 +1154,7 @@ class HexpansionMgr:
             # pass the exception up to the caller
             raise OSError(e) from e
         hexpansion_header = HexpansionHeader.from_bytes(header_bytes)
+        self._cache_eeprom_geometry(port, hexpansion_header.eeprom_total_size, hexpansion_header.eeprom_page_size)
         print(f"H:Header on port {port}: {hexpansion_header}")
         return hexpansion_header
 
@@ -929,6 +1171,7 @@ class HexpansionMgr:
             hexpansion_header = self._read_header(port)
         except OSError:
             # OSError just means there is no hexpansion EEPROM on this port
+            self._ports_initialise_declined.discard(port)
             self._hexpansion_type_by_slot[port - 1] = None
             self._hexpansion_state_by_slot[port - 1] = self.HEXPANSION_STATE_EMPTY
             return False
@@ -937,16 +1180,19 @@ class HexpansionMgr:
             if self._logging:
                 print(f"H:Found EEPROM on port {port}")
             self._hexpansion_state_by_slot[port - 1] = self.HEXPANSION_STATE_BLANK
-            self._ports_to_initialise.add(port)
+            if port not in self._ports_initialise_declined:
+                self._ports_to_initialise.add(port)
             return True
         except Exception as e:      # pylint: disable=broad-except
             print(f"H:Error reading header on port {port}: {e}")
             return False
         if hexpansion_header is None:
             print(f"H:Error reading header on port {port}")
+            self._ports_initialise_declined.discard(port)
             self._hexpansion_type_by_slot[port - 1] = None
             self._hexpansion_state_by_slot[port - 1] = self.HEXPANSION_STATE_EMPTY
             return False
+        self._ports_initialise_declined.discard(port)
         for index, hexpansion_type in enumerate(app.HEXPANSION_TYPES):
             if hexpansion_header.vid == hexpansion_type.vid and hexpansion_header.pid == hexpansion_type.pid:
                 self._hexpansion_type_by_slot[port - 1] = index
@@ -1141,17 +1387,22 @@ class HexpansionMgr:
         app = self._app
         selected_type = self._hexpansion_init_type if type_index is None else type_index
         serial_number = self._hexpansion_serial_number if unique_id is None else unique_id
+        eeprom_total_size, eeprom_page_size = self._get_eeprom_geometry(port)
+        if eeprom_total_size is None or eeprom_page_size is None:
+            eeprom_total_size, eeprom_page_size = self._detect_eeprom_geometry(port)
+        if eeprom_total_size is None or eeprom_page_size is None:
+            return False
         if self._logging:
             print(f"H:Initialising EEPROM on port {port} as {selected_type}:{app.HEXPANSION_TYPES[selected_type].name}...")
         hexpansion_header_to_write = HexpansionHeader(
             manifest_version="2024",
-            fs_offset=max(32, app.HEXPANSION_TYPES[selected_type].eeprom_page_size),
-            eeprom_page_size=app.HEXPANSION_TYPES[selected_type].eeprom_page_size,
-            eeprom_total_size=app.HEXPANSION_TYPES[selected_type].eeprom_total_size,
+            fs_offset=max(32, eeprom_page_size),
+            eeprom_page_size=eeprom_page_size,
+            eeprom_total_size=eeprom_total_size,
             vid=app.HEXPANSION_TYPES[selected_type].vid,
             pid=app.HEXPANSION_TYPES[selected_type].pid,
             unique_id=serial_number if serial_number is not None else 0,
-            friendly_name=app.HEXPANSION_TYPES[selected_type].name,
+            friendly_name=app.HEXPANSION_TYPES[selected_type].friendly_name,
         )
         try:
             i2c = I2C(port)
@@ -1262,8 +1513,11 @@ class HexpansionMgr:
         """Check for hexpansion presence in any ports, and if a new hexpansion with a blank EEPROM is detected, prompt the user to initialise it.
            Returns True if we are now in the initialise confirmation state, False otherwise."""
         app = self._app
-        if 0 < len(self._ports_to_initialise) and self._detected_port is None:
-            self._detected_port = self._ports_to_initialise.pop()
+        while self._ports_to_initialise and self._detected_port is None:
+            port = self._ports_to_initialise.pop()
+            if port in self._ports_initialise_declined:
+                continue
+            self._detected_port = port
             app.notification = Notification("Initialise?", port=self._detected_port)
             self._sub_state = _SUB_DETECTED
             return True
@@ -1362,7 +1616,9 @@ class HexpansionType:
         pid: the PID value to identify the hexpansion type from its EEPROM header.
             May be supplied as an int (``0xCBCA``) or a hex/decimal string
             (``"0xCBCA"``).
-        name: human-friendly name of the hexpansion type (e.g. "HexDrive")
+        name: human-friendly name of the hexpansion type shown in HexManager (e.g. "HexDrive")
+        friendly_name: short name written to the EEPROM header and used by BadgeOS notifications.
+            Defaults to ``name`` when omitted.
         vid: the VID value to identify the hexpansion type from its EEPROM header
             (default 0xCAFE).  Accepts int or hex/decimal string.
         eeprom_page_size: EEPROM page size in bytes.  Accepts int or hex/decimal string.
@@ -1376,11 +1632,13 @@ class HexpansionType:
     def __init__(self, pid: int | str, name: str, vid: int | str = 0xCAFE,
                  eeprom_page_size: int | str = _DEFAULT_EEPROM_PAGE_SIZE,
                  eeprom_total_size: int | str = _DEFAULT_EEPROM_TOTAL_SIZE,
+                 friendly_name: str | None = None,
                  sub_type: str | None = None,
                  app_mpy_name: str | None = None, app_mpy_version: str | None = None, app_name: str | None = None):
         self.vid: int = _parse_int(vid)
         self.pid: int = _parse_int(pid)
         self.name: str = name
+        self.friendly_name: str = name if friendly_name is None else friendly_name
         self.eeprom_page_size: int = _parse_int(eeprom_page_size)
         self.eeprom_total_size: int = _parse_int(eeprom_total_size)
         self.sub_type: str | None = sub_type

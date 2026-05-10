@@ -55,7 +55,8 @@ HexManager reads hexpansion type definitions from a JSON file named **`hexpansio
    | Field | Required | Default | Description |
    |---|---|---|---|
    | `pid` | ✅ | – | Product ID (0–65535). Must be unique within the same VID. |
-   | `name` | ✅ | – | Display name shown on screen ≤ 9 chars. |
+   | `name` | ✅ | – | Display name shown in HexManager. |
+   | `friendly_name` | No | `name` | Short name written into the EEPROM header and used by BadgeOS insertion notifications. Must fit within 9 chars. |
    | `vid` | No | "0xCAFE" | Vendor ID. |
    | `eeprom_total_size` | No | 8192 | EEPROM size in **bytes** (e.g. 2048, 8192, 32768, 65536). |
    | `eeprom_page_size` | No | 32 | Write page size in **bytes** – check your EEPROM datasheet (e.g. 16, 32, 64, 128). |
