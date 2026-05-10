@@ -1040,7 +1040,12 @@ class HexpansionMgr:
         else:
             # Common header lines for all pages
             page = self._port_detail_page
-            page_title = hdr.friendly_name if hdr is not None else ("Blank EEPROM" if self._hexpansion_state_by_slot[self._port_selected - 1] == self.HEXPANSION_STATE_BLANK else hexpansion_name)
+            if self._hexpansion_state_by_slot[self._port_selected - 1] > self.HEXPANSION_STATE_BLANK and hexpansion_name:
+                page_title = hexpansion_name
+            elif hdr is not None and hdr.friendly_name:
+                page_title = hdr.friendly_name
+            else:
+                page_title = "Blank EEPROM" if self._hexpansion_state_by_slot[self._port_selected - 1] == self.HEXPANSION_STATE_BLANK else hexpansion_name
             lines = [f"Slot {self._port_selected}-{self._PAGE_NAMES[page]}", page_title]
             colours = [(1, 1, 0), (1, 0, 1)]
             if page == self._PAGE_VID_PID:
@@ -1402,7 +1407,7 @@ class HexpansionMgr:
             vid=app.HEXPANSION_TYPES[selected_type].vid,
             pid=app.HEXPANSION_TYPES[selected_type].pid,
             unique_id=serial_number if serial_number is not None else 0,
-            friendly_name=app.HEXPANSION_TYPES[selected_type].name,
+            friendly_name=app.HEXPANSION_TYPES[selected_type].friendly_name,
         )
         try:
             i2c = I2C(port)
@@ -1616,7 +1621,9 @@ class HexpansionType:
         pid: the PID value to identify the hexpansion type from its EEPROM header.
             May be supplied as an int (``0xCBCA``) or a hex/decimal string
             (``"0xCBCA"``).
-        name: human-friendly name of the hexpansion type (e.g. "HexDrive")
+        name: human-friendly name of the hexpansion type shown in HexManager (e.g. "HexDrive")
+        friendly_name: short name written to the EEPROM header and used by BadgeOS notifications.
+            Defaults to ``name`` when omitted.
         vid: the VID value to identify the hexpansion type from its EEPROM header
             (default 0xCAFE).  Accepts int or hex/decimal string.
         eeprom_page_size: EEPROM page size in bytes.  Accepts int or hex/decimal string.
@@ -1630,11 +1637,13 @@ class HexpansionType:
     def __init__(self, pid: int | str, name: str, vid: int | str = 0xCAFE,
                  eeprom_page_size: int | str = _DEFAULT_EEPROM_PAGE_SIZE,
                  eeprom_total_size: int | str = _DEFAULT_EEPROM_TOTAL_SIZE,
+                 friendly_name: str | None = None,
                  sub_type: str | None = None,
                  app_mpy_name: str | None = None, app_mpy_version: str | None = None, app_name: str | None = None):
         self.vid: int = _parse_int(vid)
         self.pid: int = _parse_int(pid)
         self.name: str = name
+        self.friendly_name: str = name if friendly_name is None else friendly_name
         self.eeprom_page_size: int = _parse_int(eeprom_page_size)
         self.eeprom_total_size: int = _parse_int(eeprom_total_size)
         self.sub_type: str | None = sub_type

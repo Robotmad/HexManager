@@ -363,6 +363,25 @@ class TestLoadHexpansionTypesFromJson:
         types, warnings = self._load_from([{"pid": 1, "name": "NoVid"}])
         assert not warnings
         assert types[0].vid == 0xCAFE
+        assert types[0].friendly_name == "NoVid"
+
+    def test_friendly_name_defaults_to_name_when_omitted(self):
+        """friendly_name defaults to the display name when JSON omits it."""
+        types, warnings = self._load_from([
+            {"pid": 1, "name": "HexCurrent"}
+        ])
+        assert not warnings
+        assert types[0].name == "HexCurrent"
+        assert types[0].friendly_name == "HexCurrent"
+
+    def test_friendly_name_override_is_loaded_separately(self):
+        """friendly_name may differ from the HexManager display name."""
+        types, warnings = self._load_from([
+            {"pid": 1, "name": "HexCurrent", "friendly_name": "HexCurent"}
+        ])
+        assert not warnings
+        assert types[0].name == "HexCurrent"
+        assert types[0].friendly_name == "HexCurent"
 
     # ------------------------------------------------------------------
     # Quoted hex strings for PID

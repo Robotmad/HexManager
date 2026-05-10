@@ -311,7 +311,61 @@ def test_prepare_eeprom_uses_detected_geometry_for_header(hexmanager_app, monkey
     assert captured['header'].eeprom_total_size == 32768
     assert captured['header'].eeprom_page_size == 64
     assert captured['header'].fs_offset == 64
+    assert captured['header'].friendly_name == helper._app.HEXPANSION_TYPES[0].friendly_name
     assert captured['page_size'] == 64
+
+
+def test_prepare_eeprom_uses_header_friendly_name_override(hexmanager_app, monkeypatch):
+    from types import SimpleNamespace
+
+    from sim.apps.HexManager import hexpansion_mgr as hexpansion_module
+
+    helper = hexmanager_app._hexpansion_mgr
+    helper._hexpansion_eeprom_addr_len[0] = 2
+    helper._hexpansion_eeprom_addr[0] = 0x50
+    helper._app.HEXPANSION_TYPES[0].name = 'HexCurrent'
+    helper._app.HEXPANSION_TYPES[0].friendly_name = 'HexCurent'
+    captured = {}
+
+    monkeypatch.setattr(hexpansion_module, 'I2C', lambda port: object())
+    monkeypatch.setattr(helper, '_detect_eeprom_geometry', lambda port, force=False: (32768, 64))
+    monkeypatch.setattr(hexpansion_module, 'write_header', lambda port, header, addr=None, addr_len=None, page_size=None: captured.update({'header': header, 'addr': addr, 'addr_len': addr_len, 'page_size': page_size}))
+    monkeypatch.setattr(helper, '_read_header', lambda port, i2c=None: captured['header'])
+    monkeypatch.setattr(hexpansion_module, 'get_hexpansion_block_devices', lambda i2c, header, addr, addr_len=None: (None, object()))
+    monkeypatch.setattr(hexpansion_module.vfs, 'VfsLfs2', SimpleNamespace(mkfs=lambda partition: None), raising=False)
+    monkeypatch.setattr(hexpansion_module.vfs, 'mount', lambda partition, mountpoint, readonly=False: None, raising=False)
+
+    assert helper._prepare_eeprom(1, type_index=0, unique_id=123)
+    assert captured['header'].friendly_name == 'HexCurent'
+
+
+def test_port_detail_prefers_known_type_name_over_header_friendly_name(hexmanager_app, monkeypatch):
+    from sim.apps.HexManager import hexpansion_mgr as hexpansion_module
+
+    app = hexmanager_app
+    helper = app._hexpansion_mgr
+    helper._port_selected = 1
+    helper._hexpansion_type_by_slot[0] = 0
+    helper._hexpansion_state_by_slot[0] = helper.HEXPANSION_STATE_RECOGNISED
+    helper._port_selected_header = SimpleNamespace(
+        friendly_name='HexCurent',
+        vid=0xCBCB,
+        pid=0x5000,
+        unique_id=123,
+        eeprom_total_size=65536,
+        eeprom_page_size=128,
+    )
+    helper._port_detail_page = helper._PAGE_VID_PID
+    helper._port_detail_page_count = 2
+    app.HEXPANSION_TYPES[0].name = 'HexCurrent'
+
+    rendered = {}
+    monkeypatch.setattr(app, 'draw_message', lambda ctx, lines, colours, font: rendered.update({'lines': list(lines)}))
+    monkeypatch.setattr(hexpansion_module, 'button_labels', lambda ctx, **kwargs: None)
+
+    helper._draw_port_select(None)
+
+    assert rendered['lines'][1] == 'HexCurrent'
 
 
 def test_blank_port_scan_button_and_geometry_details(hexmanager_app, monkeypatch):

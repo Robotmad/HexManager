@@ -211,6 +211,7 @@ def _load_hexpansion_types(app_file_path, json_path=None):
             types_list.append(HexpansionType(
                 pid=h["pid"],
                 name=str(h["name"]),
+                friendly_name=str(h["friendly_name"]) if h.get("friendly_name") is not None else str(h["name"]),
                 vid=h.get("vid", 0xCAFE),
                 eeprom_total_size=h.get("eeprom_total_size", 8192),
                 eeprom_page_size=h.get("eeprom_page_size", 32),
