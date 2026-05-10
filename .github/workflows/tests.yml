@@ -27,10 +27,16 @@ jobs:
     - name: Manage submodule
       run: |
         git submodule update --init --force
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v3
-      with:
-        python-version: ${{ matrix.python-version }}
+    #- name: Set up Python ${{ matrix.python-version }}
+    #  uses: actions/setup-python@v3
+    #  with:
+    #    python-version: ${{ matrix.python-version }}
+    
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.11"
+           
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
