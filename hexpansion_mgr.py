@@ -237,8 +237,7 @@ class HexpansionMgr:
                     return
             except OSError:
                 pass
-            finally:
-                time.sleep_ms(1)
+            time.sleep_ms(1)
 
     @classmethod
     def _read_eeprom_bytes(cls, i2c, addr: int, addr_len: int, mem_addr: int, size: int) -> bytes:
