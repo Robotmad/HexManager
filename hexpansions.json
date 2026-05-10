@@ -10,7 +10,8 @@
     ],
     "fields": {
       "pid": "REQUIRED. Product ID (16-bit integer), e.g. \"0xD15C\".",
-      "name": "REQUIRED. Human-friendly display name shown on screen, e.g. 'HexDrive'. MAXIMUM 9 chars.",
+      "name": "REQUIRED. Human-friendly display name shown in HexManager, e.g. 'HexDrive'.",
+      "friendly_name": "OPTIONAL. Short name written into the EEPROM header and shown by BadgeOS insertion notifications. Maximum 9 chars. Defaults to 'name'.",
       "sub_type": "OPTIONAL. Short label for this specific variant, e.g. '2 Motor'. Shown to the user alongside the name.",
       "vid": "OPTIONAL. Vendor ID (16-bit integer), e.g. \"0xCAFE\". Default 0xCAFE which is the UHB-IF uncontrolled VID.",
       "eeprom_total_size": "OPTIONAL. Total EEPROM size in BYTES. Default 8192 (8 KB).",
@@ -49,21 +50,26 @@
     {
       "pid": "0x10CB", "vid": "0xCBCB", "name": "HexDriveV2", "sub_type": "Uncommitted",
       "eeprom_total_size": 32768, "eeprom_page_size": 64,
-      "app_mpy_name": "hexdrive", "app_mpy_version": 6, "app_name": "HexDriveApp"
+      "app_mpy_name": "hexdrive2", "app_mpy_version": 7, "app_name": "HexDriveApp"
     },
     {
       "pid": "0x10CA", "vid": "0xCBCB", "name": "HexDriveV2", "sub_type": "2 Motor",
       "eeprom_total_size": 32768, "eeprom_page_size": 64,
-      "app_mpy_name": "hexdrive", "app_mpy_version": 6, "app_name": "HexDriveApp"
+      "app_mpy_name": "hexdrive2", "app_mpy_version": 7, "app_name": "HexDriveApp"
     },
     {
       "pid": "0x10CC", "vid": "0xCBCB", "name": "HexDriveV2", "sub_type": "2 Servo",
       "eeprom_total_size": 32768, "eeprom_page_size": 64,
-      "app_mpy_name": "hexdrive", "app_mpy_version": 6, "app_name": "HexDriveApp"
+      "app_mpy_name": "hexdrive2", "app_mpy_version": 7, "app_name": "HexDriveApp"
     },
     {
       "pid": "0x3000", "vid": "0xCBCB", "name": "HexTest",
       "eeprom_total_size": 65536, "eeprom_page_size": 128
+    },
+    {
+      "pid": "0x5000", "vid": "0xCBCB", "name": "HexCurrent", "friendly_name": "HexCurent",
+      "eeprom_total_size": 65536, "eeprom_page_size": 128,
+      "app_mpy_name": "hexcurrent", "app_mpy_version": 1, "app_name": "HexCurrentApp"
     },
     {
       "pid": "0x4000", "vid": "0xCBCB", "name": "HexDiag",

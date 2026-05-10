@@ -1,0 +1,6 @@
+[submodule "vendor/HexDrive2"]
+	path = vendor/HexDrive2
+	url = https://github.com/TeamRobotmad/HexDrive2.git
+[submodule "vendor/HexCurrent"]
+	path = vendor/HexCurrent
+	url = https://github.com/TeamRobotmad/HexCurrent.git

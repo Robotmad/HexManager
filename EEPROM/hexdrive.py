@@ -12,6 +12,9 @@ from system.scheduler.events import RequestStopAppEvent
 
 import app
 
+# Define the minimum BadgeOS version required to run this app (e.g. if we need features that are only available in a certain version of BadgeOS)
+_MIN_BADGEOS_VERSION = [1, 9, 0]     # v1.9.0 is required to be able to read the EEPROM with 16-bit addressing
+
 # HexDrive Hexpansion constants
 # Hardware defintions:
 _ENABLE_PIN  = 0  # First LS pin used to enable the SMPSU
@@ -92,7 +95,7 @@ class HexDriveApp(app.App):         # pylint: disable=no-member
             ver = self._parse_version(ota.get_version())
             #print(f"D:S/W {ver}")
             # e.g. v1.9.0-beta.1
-            if ver >= [1, 9, 0]:
+            if ver >= _MIN_BADGEOS_VERSION:
                 # we need v1.9.0+ to be able to read the EEPROM with 16-bit addressing, so if we are running on an older version then we cannot continue
                 pass
             else:

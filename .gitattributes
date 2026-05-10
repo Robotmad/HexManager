@@ -1,0 +1,13 @@
+.gitignore export-ignore
+.gitattributes export-ignore
+download.bat export-ignore
+download.sh export-ignore
+pyproject.toml export-ignore
+README.md export-ignore
+.github/ export-ignore
+.vscode/ export-ignore
+dev/ export-ignore
+tests/ export-ignore
+typings/ export-ignore
+*.py export-ignore
+*.mpy binary -diff
