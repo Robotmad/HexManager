@@ -170,14 +170,25 @@ def test_app_versions_match():
     with open(json_path) as f:
         data = json.load(f)
 
+    repo_root = Path(__file__).resolve().parents[1]
+    hexdrive2_path = repo_root / "vendor" / "HexDrive2" / "hexdrive2.py"
+    hexcurrent_path = repo_root / "vendor" / "HexCurrent" / "hexcurrent.py"
+
+    missing_vendored_sources = [
+        str(path.relative_to(repo_root))
+        for path in (hexdrive2_path, hexcurrent_path)
+        if not path.exists()
+    ]
+    if missing_vendored_sources:
+        pytest.skip(
+            "Vendored app sources are unavailable; initialize submodules to run this "
+            f"test: {', '.join(missing_vendored_sources)}"
+        )
+
     expected_versions = {
         "hexdrive": HexDriveApp.VERSION,
-        "hexdrive2": extract_version(
-            Path(__file__).resolve().parents[1] / "vendor" / "HexDrive2" / "hexdrive2.py"
-        ),
-        "hexcurrent": extract_version(
-            Path(__file__).resolve().parents[1] / "vendor" / "HexCurrent" / "hexcurrent.py"
-        ),
+        "hexdrive2": extract_version(hexdrive2_path),
+        "hexcurrent": extract_version(hexcurrent_path),
     }
 
     versioned_entries = [
