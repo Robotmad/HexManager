@@ -77,8 +77,6 @@ if __name__ == "__main__":
     parser.add_argument("-f", "--force", action="store_true", help="Skip confirmation prompt before file removal.")
     options = parser.parse_args()
     force_mode = options.force
-    found_files = set(find_files("."))
-
     for file in files_to_mpy:
         print(f"Mpy-ing file: {file}")
         mpy_cross.run(file, "-v")
@@ -88,6 +86,7 @@ if __name__ == "__main__":
         spec.artifact.parent.mkdir(parents=True, exist_ok=True)
         mpy_cross.run(str(spec.source), "-v", "-o", str(spec.artifact))
 
+    found_files = set(find_files("."))
     if not files_to_keep.issubset(found_files):
         raise FileNotFoundError(f"Some of {files_to_keep} are not found so assuming wrong directory. "
                                 "Please run this script from HexManager dir.")
