@@ -317,7 +317,7 @@ def test_prepare_eeprom_uses_detected_geometry_for_header(hexmanager_app, monkey
 def test_blank_port_scan_button_and_geometry_details(hexmanager_app, monkeypatch):
     from events.input import BUTTON_TYPES
     from sim.apps.HexManager import hexpansion_mgr as hexpansion_module
-    from sim.apps.HexManager.hexpansion_mgr import _SUB_PORT_SELECT
+    from sim.apps.HexManager.hexpansion_mgr import _SUB_PORT_SELECT, _SUB_SCANNING
 
     app = hexmanager_app
     helper = app._hexpansion_mgr
@@ -336,7 +336,8 @@ def test_blank_port_scan_button_and_geometry_details(hexmanager_app, monkeypatch
     helper._draw_port_select(None)
     assert 'Size: Unknown' in rendered['lines']
     assert 'Page: Unknown' in rendered['lines']
-    assert labels['right_label'] == 'Scan'
+    assert labels['down_label'] == 'Scan'
+    assert labels['right_label'] == 'Slot>'
 
     scan_calls = []
 
@@ -349,10 +350,22 @@ def test_blank_port_scan_button_and_geometry_details(hexmanager_app, monkeypatch
     monkeypatch.setattr(helper, '_detect_eeprom_geometry', fake_detect)
     monkeypatch.setattr(helper, '_read_port_header', lambda port: None)
 
-    app.button_states.press('RIGHT')
+    app.button_states.press('DOWN')
     helper._update_state_port_select(0)
 
+    assert helper._sub_state == _SUB_SCANNING
+    assert helper._scan_port == 1
+    assert helper._port_selected == 1
+
+    rendered.clear()
+    helper.draw(None)
+    assert 'Scanning...' in rendered['lines']
+
+    helper._update_state_scanning(0)
+
     assert scan_calls == [(1, False)]
+    assert helper._sub_state == _SUB_PORT_SELECT
+    assert helper._scan_port is None
     assert helper._port_selected == 1
 
     rendered.clear()
@@ -361,6 +374,62 @@ def test_blank_port_scan_button_and_geometry_details(hexmanager_app, monkeypatch
     assert 'Size: 8192 Bytes' in rendered['lines']
     assert 'Page: 32 Bytes' in rendered['lines']
     assert labels['right_label'] == 'Slot>'
+
+
+def test_right_button_keeps_slot_navigation_when_blank_port_can_scan(hexmanager_app):
+    from events.input import BUTTON_TYPES
+    from sim.apps.HexManager.hexpansion_mgr import _SUB_PORT_SELECT
+
+    app = hexmanager_app
+    helper = app._hexpansion_mgr
+    app.button_states = FakeButtons(BUTTON_TYPES)
+    helper._sub_state = _SUB_PORT_SELECT
+    helper._port_selected = 1
+    helper._hexpansion_state_by_slot[0] = helper.HEXPANSION_STATE_BLANK
+    helper._update_detail_page_count()
+
+    app.button_states.press('RIGHT')
+    helper._update_state_port_select(0)
+
+    assert helper._port_selected == 2
+    assert helper._sub_state == _SUB_PORT_SELECT
+
+
+def test_declined_initialise_is_not_reprompted_during_init_rescan(hexmanager_app, monkeypatch):
+    from events.input import BUTTON_TYPES
+    from sim.apps.HexManager.hexpansion_mgr import _MODE_INIT, _SUB_DETECTED, _SUB_PORT_SELECT
+
+    app = hexmanager_app
+    helper = app._hexpansion_mgr
+    app.button_states = FakeButtons(BUTTON_TYPES)
+    helper._mode = _MODE_INIT
+    helper._sub_state = _SUB_DETECTED
+    helper._detected_port = 3
+    helper._hexpansion_state_by_slot[2] = helper.HEXPANSION_STATE_BLANK
+
+    app.button_states.press('CANCEL')
+    helper._update_state_detected(0)
+
+    assert helper._detected_port is None
+    assert 3 in helper._ports_initialise_declined
+
+    def raise_blank(port, i2c=None):
+        raise RuntimeError('blank eeprom')
+
+    monkeypatch.setattr(helper, '_read_header', raise_blank)
+    helper._ports_to_initialise.clear()
+    helper._check_port_for_known_hexpansions(3)
+
+    assert 3 not in helper._ports_to_initialise
+
+    helper._mode = 3
+    helper._sub_state = _SUB_PORT_SELECT
+    helper._port_selected = 3
+    app.button_states.press('CONFIRM')
+    helper._update_state_port_select(0)
+
+    assert helper._detected_port == 3
+    assert helper._sub_state == _SUB_DETECTED
 
 
 def test_hexpansion_events_are_suppressed_while_serialise_active(hexmanager_app, monkeypatch):

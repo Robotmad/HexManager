@@ -20,6 +20,9 @@ APP_VERSION = "0.4" # HexManager App Version Number
 
 _HEXPANSIONS_JSON = "hexpansions.json"  # Name of the hexpansion type definitions file
 _SETTINGS_NAME_PREFIX = "hexmanager."  # Prefix for settings keys in EEPROM
+_MESSAGE_MAX_LINES = 5
+_MESSAGE_WRAP_COLUMNS = 18
+_IMPORT_ERRORS: dict[str, str] = {}
 
 # Screen positioning constant for scroll mode display
 H_START = -63
@@ -68,16 +71,84 @@ def _try_import(module_name, *attr_names):
     try:
         __import__(full_name)
         mod = sys.modules[full_name]
+        _IMPORT_ERRORS.pop(module_name, None)
         return tuple(getattr(mod, n) for n in attr_names)
     except ImportError as e:
+        _IMPORT_ERRORS[module_name] = str(e)
         print(f"Warning: {module_name} module not found ({e})")
     except Exception as e:                          # pylint: disable=broad-except
+        _IMPORT_ERRORS[module_name] = f"{type(e).__name__}: {e}"
         print(f"Error importing {module_name} module ({e})")
     return nones
 
 HexpansionMgr, HexpansionType, _hexpansion_init_settings = _try_import('hexpansion_mgr', 'HexpansionMgr', 'HexpansionType', 'init_settings')
 SerialiseMgr,                  _serialise_init_settings  = _try_import('serialise_mgr',  'SerialiseMgr',                    'init_settings')
 SettingsMgr, MySetting                                   = _try_import('settings_mgr',   'SettingsMgr', 'MySetting')
+
+
+def _wrap_message_line(line, max_columns=_MESSAGE_WRAP_COLUMNS):
+    text = str(line)
+    if not text:
+        return [""]
+
+    def _split_long_word(word):
+        return [word[i:i + max_columns] for i in range(0, len(word), max_columns)] or [""]
+
+    wrapped = []
+    current = ""
+    for word in text.split():
+        chunks = _split_long_word(word)
+        for idx, chunk in enumerate(chunks):
+            if idx > 0 and current:
+                wrapped.append(current)
+                current = ""
+            if not current:
+                current = chunk
+            elif len(current) + 1 + len(chunk) <= max_columns:
+                current = f"{current} {chunk}"
+            else:
+                wrapped.append(current)
+                current = chunk
+    if current or not wrapped:
+        wrapped.append(current)
+    return wrapped
+
+
+def _paginate_message(message, colours, max_lines=_MESSAGE_MAX_LINES):
+    pages = []
+    page_lines = []
+    page_colours = []
+    source_lines = list(message) if message else [""]
+    source_colours = list(colours) if colours else []
+
+    for idx, line in enumerate(source_lines):
+        colour = source_colours[idx] if idx < len(source_colours) else (1, 1, 1)
+        for wrapped_line in _wrap_message_line(line):
+            if len(page_lines) >= max_lines:
+                pages.append((page_lines, page_colours))
+                page_lines = []
+                page_colours = []
+            page_lines.append(wrapped_line)
+            page_colours.append(colour)
+
+    if page_lines or not pages:
+        pages.append((page_lines, page_colours))
+
+    return pages
+
+
+def _startup_warning_message(warning):
+    title = _HEXPANSIONS_JSON
+    body = warning
+    if warning.startswith("hexpansion_mgr import failed:"):
+        detail = warning.split(":", 1)[1].strip()
+        title = "hexpansion_mgr"
+        body = "import failed: " + detail
+    elif warning.startswith(_HEXPANSIONS_JSON):
+        body = warning[len(_HEXPANSIONS_JSON):].strip(": ")
+    else:
+        title = "HexManager"
+    return [title, "warning:", body], [(1, 0.6, 0)] * 3
 
 
 def _load_hexpansion_types(app_file_path, json_path=None):
@@ -100,8 +171,9 @@ def _load_hexpansion_types(app_file_path, json_path=None):
     types_list = []
     warnings = []
     if HexpansionType is None:
-        warnings.append("hexpansion type support unavailable")
-        print("H:Warning: hexpansion type support unavailable (HexpansionType import failed)")
+        reason = _IMPORT_ERRORS.get("hexpansion_mgr", "HexpansionType import failed")
+        warnings.append(f"hexpansion_mgr import failed: {reason}")
+        print(f"H:Warning: hexpansion_mgr import failed ({reason})")
         return types_list, warnings
     if json_path is None:
         last_slash = max(app_file_path.rfind("/"), app_file_path.rfind("\\"))
@@ -175,6 +247,8 @@ class HexManagerApp(app.App):         # pylint: disable=no-member
         self.message: list = []
         self.message_colours: list = []
         self.message_type: str | None = None
+        self._message_pages: list[tuple[list[str], list[tuple[float, float, float]]]] = []
+        self._message_page_index: int = 0
         self.current_menu: str | None = None
         self.menu: Menu | None = None
         self.scroll_mode_enabled: bool = False  # Whether pressing the "C" button can toggle scroll mode on/off, which allows the user to scroll through lines on the display.
@@ -382,10 +456,9 @@ class HexManagerApp(app.App):         # pylint: disable=no-member
         # Show any startup warnings once (e.g. hexpansions.json not found or parse error)
         if self._startup_warnings and self.current_state != STATE_MESSAGE:
             w = self._startup_warnings[0]
-            if w.startswith(_HEXPANSIONS_JSON):
-                w = w[len(_HEXPANSIONS_JSON):].strip(": ")
             self._startup_warning_active = True
-            self.show_message([_HEXPANSIONS_JSON, "warning:", w], [(1, 0.6, 0)] * 3, msg_type="warning")
+            msg_content, msg_colours = _startup_warning_message(w)
+            self.show_message(msg_content, msg_colours, msg_type="warning")
             return
         if self.current_state == STATE_MENU:
             if self.current_menu is None:
@@ -430,6 +503,18 @@ class HexManagerApp(app.App):         # pylint: disable=no-member
 
 
     def _update_state_message(self, delta: int):      # pylint: disable=unused-argument
+        if len(self._message_pages) > 1 and self.button_states.get(BUTTON_TYPES["UP"]):
+            self.button_states.clear()
+            if self._message_page_index > 0:
+                self._set_message_page(self._message_page_index - 1)
+                self.refresh = True
+            return
+        if len(self._message_pages) > 1 and self.button_states.get(BUTTON_TYPES["DOWN"]):
+            self.button_states.clear()
+            if self._message_page_index < len(self._message_pages) - 1:
+                self._set_message_page(self._message_page_index + 1)
+                self.refresh = True
+            return
         if self.button_states.get(BUTTON_TYPES["CONFIRM"]):
             if self.message_type == "reboop":
                 self.button_states.clear()
@@ -456,6 +541,8 @@ class HexManagerApp(app.App):         # pylint: disable=no-member
             self.message = []
             self.message_colours = []
             self.message_type = None
+            self._message_pages = []
+            self._message_page_index = 0
 
 
     def scroll_mode_enable(self, enable: bool):
@@ -514,7 +601,9 @@ class HexManagerApp(app.App):         # pylint: disable=no-member
                     self.message_colours = [(1,0,0)]*len(self.message)
                 self.draw_message(ctx, self.message, self.message_colours, label_font_size)
                 if self.message_type is None or self.message_type == "warning" or self.message_type == "hexpansion" or self.message_type == "serialise":
-                    button_labels(ctx, confirm_label="OK", cancel_label="Exit")
+                    up_label = "Prev" if self._message_page_index > 0 else ""
+                    down_label = "Next" if self._message_page_index < len(self._message_pages) - 1 else ""
+                    button_labels(ctx, confirm_label="OK", cancel_label="Exit", up_label=up_label, down_label=down_label)
             else:
                 # Delegate to functional area managers via dispatch table
                 if self.current_state in self._state_draw_dispatch:
@@ -561,12 +650,21 @@ class HexManagerApp(app.App):         # pylint: disable=no-member
         self.refresh = True
 
 
+    def _set_message_page(self, index: int):
+        self._message_page_index = index
+        if not self._message_pages:
+            self.message = []
+            self.message_colours = []
+            return
+        self.message, self.message_colours = self._message_pages[index]
+
+
     def show_message(self, msg_content, msg_colours, msg_type = None):
         """Utility function to set the current state to the message display, and populate the message content and colours. The message_type can be used to indicate whether this is an 'error' (red) or 'warning' (green) message, which can affect both the display and the behaviour when the user acknowledges the message."""
         if self.logging:
             print(f"Showing message: '{msg_content}' with type {msg_type}")
-        self.message = msg_content
-        self.message_colours = msg_colours
+        self._message_pages = _paginate_message(msg_content, msg_colours)
+        self._set_message_page(0)
         self.message_type = msg_type
         self.current_state = STATE_MESSAGE
         self.refresh = True

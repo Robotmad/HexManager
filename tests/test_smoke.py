@@ -53,6 +53,98 @@ def test_hexmanager_runtime_blocks_type_dependent_flows_when_type_load_fails(mon
     assert "parse error" in app.message[-1]
     assert app._startup_warnings == ["hexpansions.json parse error"]
 
+
+def test_load_hexpansion_types_reports_real_import_failure_reason(monkeypatch):
+    import sim.apps.HexManager.app as hexmanager_module
+
+    monkeypatch.setattr(hexmanager_module, "HexpansionType", None)
+    monkeypatch.setitem(
+        hexmanager_module._IMPORT_ERRORS,
+        "hexpansion_mgr",
+        "can't import name read_hexpansion_header",
+    )
+
+    types, warnings = hexmanager_module._load_hexpansion_types("dummy/app.py")
+
+    assert types == []
+    assert warnings == [
+        "hexpansion_mgr import failed: can't import name read_hexpansion_header"
+    ]
+
+
+def test_startup_warning_lines_paginate_within_visible_five_lines():
+    import sim.apps.HexManager.app as hexmanager_module
+
+    candidate_warnings = [
+        "hexpansions.json not found",
+        "hexpansions.json parse error",
+        "hexpansions.json load error",
+        "hexpansions.json: 'hexpansions' must be a list",
+        "hexpansions.json: no valid entries found",
+        "hexpansion_mgr import failed: can't import name read_hexpansion_header",
+    ]
+
+    for warning in candidate_warnings:
+        msg_content, msg_colours = hexmanager_module._startup_warning_message(warning)
+        pages = hexmanager_module._paginate_message(msg_content, msg_colours)
+        assert pages, warning
+        for page_lines, page_colours in pages:
+            assert len(page_lines) <= hexmanager_module._MESSAGE_MAX_LINES, warning
+            assert len(page_lines) == len(page_colours), warning
+
+
+def test_long_startup_warning_uses_pages_and_navigation(monkeypatch):
+    import sim.apps.HexManager.app as hexmanager_module
+    from events.input import BUTTON_TYPES
+
+    class FakeButtons:
+        def __init__(self):
+            self._pressed = set()
+
+        def press(self, *names):
+            self._pressed = {BUTTON_TYPES[name] for name in names}
+
+        def get(self, button):
+            return button in self._pressed
+
+        def clear(self):
+            self._pressed.clear()
+
+    long_warning = (
+        "hexpansion_mgr import failed: can't import name "
+        "read_hexpansion_header while importing system hexpansion support"
+    )
+
+    monkeypatch.setattr(
+        hexmanager_module,
+        "_load_hexpansion_types",
+        lambda app_file_path, json_path=None: ([], [long_warning]),
+    )
+
+    app = hexmanager_module.HexManagerApp()
+    app.button_states = FakeButtons()
+    app.current_state = hexmanager_module.STATE_SERIALISE
+
+    app.update(0)
+
+    assert app.message_type == "warning"
+    assert app.message[0] == "hexpansion_mgr"
+    assert len(app.message) <= hexmanager_module._MESSAGE_MAX_LINES
+    assert len(app._message_pages) > 1
+
+    first_page = list(app.message)
+    app.button_states.press("DOWN")
+    app.update(0)
+
+    assert app.message != first_page
+    assert app._message_page_index == 1
+
+    app.button_states.press("UP")
+    app.update(0)
+
+    assert app.message == first_page
+    assert app._message_page_index == 0
+
 def test_hexdrive_app_init(port):
     from sim.apps.HexManager.EEPROM.hexdrive import HexDriveApp
     config = HexpansionConfig(port)
