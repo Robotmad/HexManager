@@ -112,10 +112,6 @@ def get_hexpansion_block_devices(i2c, header, addr=0x50, addr_len=2):
         offset=header.fs_offset,
         length=header.eeprom_total_size - header.fs_offset,
     )
-    print("eeprom block count:", eep.ioctl(4, None))
-    print("partition block count:", partition.ioctl(4, None))
-    print("partition block size:", partition.ioctl(5, None))
-
     return eep, partition
 
 
