@@ -101,13 +101,14 @@ class MySetting:
 
     def persist(self):
         """Persist the setting value to platform storage.  If the value is equal to the default, the setting will be removed from storage to save space."""
+        index = self._index()
+        if index is None:
+            return
+        key = f"hexmanager.{index}"
         try:
-            if self.v != self.d:
-                platform_settings.set(f"hexmanager.{self._index()}", self.v)
-            else:
-                platform_settings.set(f"hexmanager.{self._index()}", None)
+            platform_settings.set(key, self.v if self.v != self.d else None)
         except Exception as e:          # pylint: disable=broad-except
-            print(f"H:Failed to persist setting {self._index()}: {e}")
+            print(f"H:Failed to persist setting {key}: {e}")
 
 
 class SettingsMgr:
@@ -133,7 +134,7 @@ class SettingsMgr:
     def logging(self) -> bool:
         """Whether to print debug logs to the console."""
         return self._logging
-    
+
     @logging.setter
     def logging(self, value: bool):
         self._logging = value
