@@ -160,5 +160,38 @@ PYTHONPATH=/path/to/badge-2024-software ../.venv-wsl310/bin/python -m pytest tes
 ### Best practise
 Run `isort` on in-app python files. Check `pylint` for linting errors.
 
+### Minification
+
+Hexpansion apps stored on EEPROM are minified before being compiled to `.mpy` to reduce their on-badge footprint.  The following files are minified:
+
+| Source | Artifact |
+|--------|----------|
+| `vendor/HexCurrent/hexcurrent.py` | `EEPROM/hexcurrent.mpy` |
+| `vendor/HexDrive2/hexdrive2.py` | `EEPROM/hexdrive2.mpy` |
+| `EEPROM/gps.py` | `EEPROM/gps.mpy` |
+| `EEPROM/caffeine.py` | `EEPROM/caffeine.mpy` |
+
+The pipeline uses `dev/minify.py` which:
+1. Renames internal `self.*` attributes to short names via an AST transform (source stays readable)
+2. Strips docstrings with `python-minifier`
+3. Compiles with `mpy-cross -O2`
+
+Typical savings are ~5–9% compared with compiling from source directly.
+
+The minifier is invoked **automatically** by `dev/download_to_device.py` for any `ModuleSpec` that has `minify=True`.  You do not need to run it manually during normal development.
+
+To run it standalone and see a before/after size comparison for all minified modules:
+```
+python dev/minify.py
+```
+
+Or to minify a single file (as `download_to_device.py` does):
+```
+python dev/minify.py --source EEPROM/gps.py --artifact EEPROM/gps.mpy
+```
+
+`python-minifier` is listed in `dev/dev_requirements.txt` and is installed as part of the standard dev-environment setup.
+
+Intermediate build artefacts (`*.min.py`, `*.renamed.py`, `*.min.mpy`) are listed in `.gitignore` and should not be committed.
 
 ### Contribution guidelines

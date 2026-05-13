@@ -5,3 +5,8 @@ HexManager.code-workspace
 .editorconfig
 .venv/
 .venv-wsl*/
+# minify.py build artefacts
+vendor/**/*.min.py
+vendor/**/*.min.mpy
+vendor/**/*.mpy
+vendor/**/*.renamed.py

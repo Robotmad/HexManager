@@ -33,6 +33,7 @@ MPREMOTE_PROBE_MARKER = "__hexmanager_mpremote_ok__"
 class ModuleSpec:
     source: Path
     artifact: Path
+    minify: bool = False
 
 
 # Add new runtime modules here as the project grows.
@@ -42,10 +43,10 @@ MODULES: tuple[ModuleSpec, ...] = (
     ModuleSpec(Path("hexpansion_mgr.py"), Path("hexpansion_mgr.mpy")),
     ModuleSpec(Path("serialise_mgr.py"), Path("serialise_mgr.mpy")),
     ModuleSpec(Path("EEPROM/hexdrive.py"), Path("EEPROM/hexdrive.mpy")),
-    ModuleSpec(Path("vendor/HexDrive2/hexdrive2.py"), Path("EEPROM/hexdrive2.mpy")),
-    ModuleSpec(Path("vendor/HexCurrent/hexcurrent.py"), Path("EEPROM/hexcurrent.mpy")),
-    ModuleSpec(Path("EEPROM/gps.py"), Path("EEPROM/gps.mpy")),
-    ModuleSpec(Path("EEPROM/caffeine.py"), Path("EEPROM/caffeine.mpy"))
+    ModuleSpec(Path("vendor/HexDrive2/hexdrive2.py"), Path("EEPROM/hexdrive2.mpy"), minify=True),
+    ModuleSpec(Path("vendor/HexCurrent/hexcurrent.py"), Path("EEPROM/hexcurrent.mpy"), minify=True),
+    ModuleSpec(Path("EEPROM/gps.py"), Path("EEPROM/gps.mpy"), minify=True),
+    ModuleSpec(Path("EEPROM/caffeine.py"), Path("EEPROM/caffeine.mpy"), minify=True),
 )
 
 # Files copied to the device as-is (no compilation).
@@ -345,11 +346,20 @@ def _compile_changed_modules(
             _log("SKP", f"compile {spec.source} (source unchanged)")
             continue
 
-        _log("INFO", f"compile {spec.source} -> {spec.artifact}")
-        _run_command(
-            ["mpy-cross", "-v", str(spec.source), "-o", str(spec.artifact)],
-            dry_run=dry_run,
-        )
+        if spec.minify:
+            _log("INFO", f"minify+compile {spec.source} -> {spec.artifact}")
+            _run_command(
+                [sys.executable, "dev/minify.py",
+                 "--source", str(spec.source),
+                 "--artifact", str(spec.artifact)],
+                dry_run=dry_run,
+            )
+        else:
+            _log("INFO", f"compile {spec.source} -> {spec.artifact}")
+            _run_command(
+                ["mpy-cross", "-v", str(spec.source), "-o", str(spec.artifact)],
+                dry_run=dry_run,
+            )
 
         if not dry_run and not spec.artifact.exists():
             raise RuntimeError(f"mpy-cross did not produce {spec.artifact}")
