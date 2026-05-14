@@ -14,8 +14,8 @@
       "friendly_name": "OPTIONAL. Short name written into the EEPROM header and shown by BadgeOS insertion notifications. Maximum 9 chars. Defaults to 'name'.",
       "sub_type": "OPTIONAL. Short label for this specific variant, e.g. '2 Motor'. Shown to the user alongside the name.",
       "vid": "OPTIONAL. Vendor ID (16-bit integer), e.g. \"0xCAFE\". Default 0xCAFE which is the UHB-IF uncontrolled VID.",
-      "eeprom_total_size": "OPTIONAL. Total EEPROM size in BYTES. Default 8192 (8 KB).",
-      "eeprom_page_size": "OPTIONAL. EEPROM page size in BYTES. Default 32.",
+      "eeprom_total_size": "OPTIONAL. Total EEPROM size in BYTES.",
+      "eeprom_page_size": "OPTIONAL. EEPROM page size in BYTES.",
       "app_mpy_name": "OPTIONAL. Filename (without .mpy extension) of the compiled app to write to the hexpansion EEPROM. File must be in the EEPROM sub-folder of the HexManager app on the badge (e.g. /apps/TeamRobotmad_HexManager/EEPROM/myhex.mpy). NOTE: the file is renamed to 'app.mpy' when programmed onto the EEPROM so that Badge OS automatically detects and runs it when the hexpansion is inserted into a badge slot.",
       "app_mpy_version": "OPTIONAL. Version number (integer or string) of the .mpy app. Used to detect when an upgrade is needed.",
       "app_name": "OPTIONAL. Python class name of the hexpansion app, e.g. 'MyHexApp'. Used to check if the app is running."
@@ -48,7 +48,12 @@
       "sub_type": "2 Line Sensors"
     },
     {
-      "pid": "0x10CB", "vid": "0xCBCB", "name": "HexDriveV2", "sub_type": "Uncommitted",
+      "pid": "0x10C8", "vid": "0xCBCB", "name": "HexDriveV2", "sub_type": "Uncommitted",
+      "eeprom_total_size": 32768, "eeprom_page_size": 64,
+      "app_mpy_name": "hexdrive2", "app_mpy_version": 7, "app_name": "HexDriveApp"
+    },
+    {
+      "pid": "0x10C9", "vid": "0xCBCB", "name": "HexDriveV2", "sub_type": "2 Servo",
       "eeprom_total_size": 32768, "eeprom_page_size": 64,
       "app_mpy_name": "hexdrive2", "app_mpy_version": 7, "app_name": "HexDriveApp"
     },
@@ -58,7 +63,17 @@
       "app_mpy_name": "hexdrive2", "app_mpy_version": 7, "app_name": "HexDriveApp"
     },
     {
-      "pid": "0x10CC", "vid": "0xCBCB", "name": "HexDriveV2", "sub_type": "2 Servo",
+      "pid": "0x11CE", "vid": "0xCBCB", "name": "HexDriveV2", "sub_type": "Left Motor",
+      "eeprom_total_size": 32768, "eeprom_page_size": 64,
+      "app_mpy_name": "hexdrive2", "app_mpy_version": 7, "app_name": "HexDriveApp"
+    },
+    {
+      "pid": "0x12CE", "vid": "0xCBCB", "name": "HexDriveV2", "sub_type": "Right Motor",
+      "eeprom_total_size": 32768, "eeprom_page_size": 64,
+      "app_mpy_name": "hexdrive2", "app_mpy_version": 7, "app_name": "HexDriveApp"
+    },
+    {
+      "pid": "0x10CF", "vid": "0xCBCB", "name": "HexDriveV2", "sub_type": "1 Mot 1 Srvo",
       "eeprom_total_size": 32768, "eeprom_page_size": 64,
       "app_mpy_name": "hexdrive2", "app_mpy_version": 7, "app_name": "HexDriveApp"
     },
