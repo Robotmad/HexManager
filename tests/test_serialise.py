@@ -230,7 +230,7 @@ def test_serialise_exit_refreshes_hexpansion_records(serialise_app, monkeypatch)
 
 
 def test_refresh_slot_records_rescans_all_slots(hexmanager_app, monkeypatch):
-    from sim.apps.HexManager.hexpansion_mgr import HexpansionMgr, _NUM_HEXPANSION_SLOTS
+    from sim.apps.HexManager.hexpansion_mgr import HexpansionMgr, _SLOTS
 
     app = hexmanager_app
     helper = app._hexpansion_mgr
@@ -244,19 +244,19 @@ def test_refresh_slot_records_rescans_all_slots(hexmanager_app, monkeypatch):
     helper._erase_port = 3
     helper._upgrade_port = 4
     helper._port_selected = 5
-    helper._hexpansion_type_by_slot = [0] * _NUM_HEXPANSION_SLOTS
-    helper._hexpansion_state_by_slot = [1] * _NUM_HEXPANSION_SLOTS
-    helper._hexpansion_eeprom_addr_len = [1] * _NUM_HEXPANSION_SLOTS
-    helper._hexpansion_eeprom_addr = [0x50] * _NUM_HEXPANSION_SLOTS
-    helper._hexpansion_eeprom_total_size = [2048] * _NUM_HEXPANSION_SLOTS
-    helper._hexpansion_eeprom_page_size = [16] * _NUM_HEXPANSION_SLOTS
+    helper._hexpansion_type_by_slot = [0] * _SLOTS
+    helper._hexpansion_state_by_slot = [1] * _SLOTS
+    helper._hexpansion_eeprom_addr_len = [1] * _SLOTS
+    helper._hexpansion_eeprom_addr = [0x50] * _SLOTS
+    helper._hexpansion_eeprom_total_size = [2048] * _SLOTS
+    helper._hexpansion_eeprom_page_size = [16] * _SLOTS
 
     monkeypatch.setattr(helper, '_check_port_for_known_hexpansions', lambda port: checked_ports.append(port) or False)
     monkeypatch.setattr(helper, '_read_port_header', lambda port: header_ports.append(port))
 
     helper.refresh_slot_records()
 
-    assert checked_ports == list(range(1, _NUM_HEXPANSION_SLOTS + 1))
+    assert checked_ports == list(range(1, _SLOTS + 1))
     assert header_ports == [5]
     assert helper._ports_to_initialise == set()
     assert helper._ports_to_check_app == set()
@@ -264,12 +264,12 @@ def test_refresh_slot_records_rescans_all_slots(hexmanager_app, monkeypatch):
     assert helper._waiting_app_port is None
     assert helper._erase_port is None
     assert helper._upgrade_port is None
-    assert helper._hexpansion_type_by_slot == [None] * _NUM_HEXPANSION_SLOTS
-    assert helper._hexpansion_state_by_slot == [HexpansionMgr.HEXPANSION_STATE_UNKNOWN] * _NUM_HEXPANSION_SLOTS
-    assert helper._hexpansion_eeprom_addr_len == [None] * _NUM_HEXPANSION_SLOTS
-    assert helper._hexpansion_eeprom_addr == [None] * _NUM_HEXPANSION_SLOTS
-    assert helper._hexpansion_eeprom_total_size == [None] * _NUM_HEXPANSION_SLOTS
-    assert helper._hexpansion_eeprom_page_size == [None] * _NUM_HEXPANSION_SLOTS
+    assert helper._hexpansion_type_by_slot == [None] * _SLOTS
+    assert helper._hexpansion_state_by_slot == [HexpansionMgr.HEXPANSION_STATE_UNKNOWN] * _SLOTS
+    assert helper._hexpansion_eeprom_addr_len == [None] * _SLOTS
+    assert helper._hexpansion_eeprom_addr == [None] * _SLOTS
+    assert helper._hexpansion_eeprom_total_size == [None] * _SLOTS
+    assert helper._hexpansion_eeprom_page_size == [None] * _SLOTS
 
 
 @pytest.mark.parametrize(("total_size", "page_size", "addr_len"), [(2048, 16, 1), (32768, 64, 2)])
