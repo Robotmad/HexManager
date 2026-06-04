@@ -91,6 +91,14 @@
       "eeprom_total_size": 65536, "eeprom_page_size": 128
     },
     {
+      "pid": "0x6000", "vid": "0xCBCB", "name": "XYStage",
+      "eeprom_total_size": 8192, "eeprom_page_size": 32
+    },
+    {
+      "pid": "0x6001", "vid": "0xCBCB", "name": "Joystick",
+      "eeprom_total_size": 8192, "eeprom_page_size": 32
+    },
+    {
       "pid": "0x1295", "vid": "0x7CAB", "name": "GPS", "sub_type": "L80K",
       "eeprom_total_size": 2048, "eeprom_page_size": 16,
       "app_mpy_name": "gps", "app_mpy_version": 1, "app_name": "GPSApp"
