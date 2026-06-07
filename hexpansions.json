@@ -70,11 +70,6 @@
       "eeprom_total_size": 65536, "eeprom_page_size": 128
     },
     {
-      "pid": "0x1295", "vid": "0xCAFE", "name": "GPS", "sub_type": "L80K",
-      "eeprom_total_size": 2048, "eeprom_page_size": 16,
-      "app_mpy_name": "gps", "app_mpy_version": 1, "app_name": "GPSApp"
-    },
-    {
       "_comment": "Flopagon - small 2048-byte EEPROM. EEPROM too small for an app.",
       "pid": "0xD15C", "vid": "0xCAFE", "name": "Flopagon",
       "eeprom_total_size": 2048, "eeprom_page_size": 16
