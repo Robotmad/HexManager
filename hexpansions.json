@@ -25,22 +25,22 @@
     {
       "pid": "0xCBCB", "vid": "0xCAFE", "name": "HexDrive", "sub_type": "Uncommitted",
       "eeprom_total_size": 8192, "eeprom_page_size": 32,
-      "app_mpy_name": "hexdrive", "app_mpy_version": 6, "app_name": "HexDriveApp"
+      "app_mpy_name": "hexdrive", "app_mpy_version": 7, "app_name": "HexDriveApp"
     },
     {
       "pid": "0xCBCA", "vid": "0xCAFE", "name": "HexDrive", "sub_type": "2 Motor",
       "eeprom_total_size": 8192, "eeprom_page_size": 32,
-      "app_mpy_name": "hexdrive", "app_mpy_version": 6, "app_name": "HexDriveApp"
+      "app_mpy_name": "hexdrive", "app_mpy_version": 7, "app_name": "HexDriveApp"
     },
     {
       "pid": "0xCBCC", "vid": "0xCAFE", "name": "HexDrive", "sub_type": "4 Servo",
       "eeprom_total_size": 8192, "eeprom_page_size": 32,
-      "app_mpy_name": "hexdrive", "app_mpy_version": 6, "app_name": "HexDriveApp"
+      "app_mpy_name": "hexdrive", "app_mpy_version": 7, "app_name": "HexDriveApp"
     },
     {
       "pid": "0xCBCD", "vid": "0xCAFE", "name": "HexDrive", "sub_type": "1 Mot 2 Srvo",
       "eeprom_total_size": 8192, "eeprom_page_size": 32,
-      "app_mpy_name": "hexdrive", "app_mpy_version": 6, "app_name": "HexDriveApp"
+      "app_mpy_name": "hexdrive", "app_mpy_version": 7, "app_name": "HexDriveApp"
     },
     {
       "pid": "0x2000", "vid": "0xCBCB", "name": "HexSense",
@@ -48,38 +48,43 @@
       "sub_type": "2 Line Sensors"
     },
     {
-      "pid": "0x10C8", "vid": "0xCBCB", "name": "HexDriveV2", "sub_type": "Uncommitted",
+      "pid": "0x10C8", "vid": "0xCBCB", "name": "HexDrive2", "sub_type": "Uncommitted",
       "eeprom_total_size": 32768, "eeprom_page_size": 64,
-      "app_mpy_name": "hexdrive2", "app_mpy_version": 7, "app_name": "HexDriveApp"
+      "app_mpy_name": "hexdrive2", "app_mpy_version": 1, "app_name": "HexDriveApp"
     },
     {
-      "pid": "0x10C9", "vid": "0xCBCB", "name": "HexDriveV2", "sub_type": "2 Servo",
+      "pid": "0x10C9", "vid": "0xCBCB", "name": "HexDrive2", "sub_type": "2 Servo",
       "eeprom_total_size": 32768, "eeprom_page_size": 64,
-      "app_mpy_name": "hexdrive2", "app_mpy_version": 7, "app_name": "HexDriveApp"
+      "app_mpy_name": "hexdrive2", "app_mpy_version": 1, "app_name": "HexDriveApp"
     },
     {
-      "pid": "0x10CA", "vid": "0xCBCB", "name": "HexDriveV2", "sub_type": "2 Motor",
+      "pid": "0x10CA", "vid": "0xCBCB", "name": "HexDrive2", "sub_type": "2 Motor",
       "eeprom_total_size": 32768, "eeprom_page_size": 64,
-      "app_mpy_name": "hexdrive2", "app_mpy_version": 7, "app_name": "HexDriveApp"
+      "app_mpy_name": "hexdrive2", "app_mpy_version": 1, "app_name": "HexDriveApp"
     },
     {
-      "pid": "0x11CE", "vid": "0xCBCB", "name": "HexDriveV2", "sub_type": "Left Motor",
+      "pid": "0x11CE", "vid": "0xCBCB", "name": "HexDrive2", "sub_type": "Left Motor",
       "eeprom_total_size": 32768, "eeprom_page_size": 64,
-      "app_mpy_name": "hexdrive2", "app_mpy_version": 7, "app_name": "HexDriveApp"
+      "app_mpy_name": "hexdrive2", "app_mpy_version": 1, "app_name": "HexDriveApp"
     },
     {
-      "pid": "0x12CE", "vid": "0xCBCB", "name": "HexDriveV2", "sub_type": "Right Motor",
+      "pid": "0x12CE", "vid": "0xCBCB", "name": "HexDrive2", "sub_type": "Right Motor",
       "eeprom_total_size": 32768, "eeprom_page_size": 64,
-      "app_mpy_name": "hexdrive2", "app_mpy_version": 7, "app_name": "HexDriveApp"
+      "app_mpy_name": "hexdrive2", "app_mpy_version": 1, "app_name": "HexDriveApp"
     },
     {
-      "pid": "0x10CF", "vid": "0xCBCB", "name": "HexDriveV2", "sub_type": "1 Mot 1 Srvo",
+      "pid": "0x10CF", "vid": "0xCBCB", "name": "HexDrive2", "sub_type": "1 Mot 1 Srvo",
       "eeprom_total_size": 32768, "eeprom_page_size": 64,
-      "app_mpy_name": "hexdrive2", "app_mpy_version": 7, "app_name": "HexDriveApp"
+      "app_mpy_name": "hexdrive2", "app_mpy_version": 1, "app_name": "HexDriveApp"
+    },
+    {
+      "pid": "0x2000", "vid": "0xCBCB", "name": "HexAudio", "sub_type": "Output Only",
+      "eeprom_total_size": 8192, "eeprom_page_size": 32
     },
     {
       "pid": "0x3000", "vid": "0xCBCB", "name": "HexTest",
-      "eeprom_total_size": 65536, "eeprom_page_size": 128
+      "eeprom_total_size": 65536, "eeprom_page_size": 128,
+      "app_mpy_name": "hextest", "app_mpy_version": 1, "app_name": "HexTestApp"
     },
     {
       "pid": "0x5000", "vid": "0xCBCB", "name": "HexCurrent", "friendly_name": "HexCurent",
@@ -99,9 +104,9 @@
       "eeprom_total_size": 8192, "eeprom_page_size": 32
     },
     {
-      "pid": "0x1295", "vid": "0x7CAB", "name": "GPS", "sub_type": "L80K",
+      "pid": "0xbeac", "vid": "0x7cab", "name": "GPS", "sub_type": "L80K",
       "eeprom_total_size": 2048, "eeprom_page_size": 16,
-      "app_mpy_name": "gps", "app_mpy_version": 1, "app_name": "GPSApp"
+      "app_mpy_name": "gps", "app_mpy_version": 2, "app_name": "GPSApp"
     },
     {
       "_comment": "Flopagon - small 2048-byte EEPROM. EEPROM too small for the app.",
