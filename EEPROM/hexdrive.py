@@ -142,7 +142,7 @@ class HexDriveApp(app.App):         # pylint: disable=no-member
         return self._pwm_init()
 
 
-    def deinitialise(self) -> bool:
+    def deinit(self) -> bool:
         """ De-initialise the app - return True if successful, False if failed."""
         # Turn off all PWM outputs & release resources
         self.set_power(False)
@@ -160,7 +160,7 @@ class HexDriveApp(app.App):         # pylint: disable=no-member
             if event.app == self:
                 if self._logging:
                     print(f"D:{self.config.port}:Stop")
-                self.deinitialise()
+                self.deinit()
         except (AttributeError, TypeError):
             pass
 
