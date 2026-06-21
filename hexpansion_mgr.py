@@ -920,6 +920,11 @@ class HexpansionMgr:
             if self._hexpansion_state_by_slot[self._port_selected - 1] == self.HEXPANSION_STATE_BLANK and not self._has_eeprom_geometry(self._port_selected):
                 self._scan_port = self._port_selected
                 self._sub_state = _SUB_SCANNING
+            elif self._hexpansion_state_by_slot[self._port_selected - 1] == self.HEXPANSION_STATE_RECOGNISED_OLD_APP:
+                # when we offer an Upgrade we need to also offer a means to force an Erase.
+                self._erase_port = self._port_selected
+                app.notification = Notification("Erase?", port=self._erase_port)
+                self._sub_state = _SUB_ERASE_CONFIRM
             elif self._port_detail_page_count > 1:
                 self._port_detail_page = (self._port_detail_page + 1) % self._port_detail_page_count
             app.refresh = True
@@ -1101,8 +1106,11 @@ class HexpansionMgr:
         confirm_label = "Init" if self._hexpansion_state_by_slot[self._port_selected - 1] == self.HEXPANSION_STATE_BLANK else \
                         "Upgrade" if self._hexpansion_state_by_slot[self._port_selected - 1] == self.HEXPANSION_STATE_RECOGNISED_OLD_APP else \
                         "Erase" if self._hexpansion_state_by_slot[self._port_selected - 1] >= self.HEXPANSION_STATE_FAULTY else ""
+
         if self._hexpansion_state_by_slot[self._port_selected - 1] == self.HEXPANSION_STATE_BLANK and not self._has_eeprom_geometry(self._port_selected):
             down_label = "Scan"
+        elif confirm_label == "Upgrade":
+            down_label = "Erase"
         right_label = "Slot>"
         button_labels(ctx, confirm_label=confirm_label, left_label="<Slot", right_label=right_label,
                   up_label=up_label, down_label=down_label, cancel_label="Back")

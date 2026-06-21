@@ -43,11 +43,11 @@ MODULES: tuple[ModuleSpec, ...] = (
     ModuleSpec(Path("settings_mgr.py"), Path("settings_mgr.mpy")),
     ModuleSpec(Path("hexpansion_mgr.py"), Path("hexpansion_mgr.mpy")),
     ModuleSpec(Path("serialise_mgr.py"), Path("serialise_mgr.mpy")),
-    ModuleSpec(Path("EEPROM/hexdrive.py"), Path("EEPROM/hexdrive.mpy"), minify=True),
-    ModuleSpec(Path("vendor/HexDrive2/hexdrive2.py"), Path("EEPROM/hexdrive2.mpy"), minify=True),
-    ModuleSpec(Path("vendor/HexCurrent/hexcurrent.py"), Path("EEPROM/hexcurrent.mpy"), minify=True),
-    ModuleSpec(Path("EEPROM/gps.py"), Path("EEPROM/gps.mpy"), minify=True),
-    ModuleSpec(Path("EEPROM/caffeine.py"), Path("EEPROM/caffeine.mpy"), minify=True),
+    ModuleSpec(Path("EEPROM/hexdrive.py"), Path("EEPROM/hexdrive.mpy"), minify=False),
+    ModuleSpec(Path("vendor/HexDrive2/hexdrive2.py"), Path("EEPROM/hexdrive2.mpy"), minify=False),
+    ModuleSpec(Path("vendor/HexCurrent/hexcurrent.py"), Path("EEPROM/hexcurrent.mpy"), minify=False),
+    ModuleSpec(Path("EEPROM/gps.py"), Path("EEPROM/gps.mpy"), minify=False),
+    ModuleSpec(Path("EEPROM/caffeine.py"), Path("EEPROM/caffeine.mpy"), minify=False),
 )
 
 # Files copied to the device as-is (no compilation).

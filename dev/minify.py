@@ -68,6 +68,12 @@ _PRESERVE_GPS: frozenset[str] = frozenset({
     "__init__", "__app_export__",
     # Public state (HexManager checks config to identify the port)
     "config", "VERSION",
+    # Public Event Type
+    "GPSEvent",
+    # Public method (called by HexManager stop logic)
+    "deinit",
+    # GPSApp fields accessed externally
+    "position", "speed", "bearing", "sentences",
     # Note: all self.* attributes in gps.py are already 1-char (t, x, r, b, l, u, z, n)
     # so the AST renamer finds nothing to shorten; pipeline still strips docstrings.
 })
