@@ -9,5 +9,6 @@ README.md export-ignore
 dev/ export-ignore
 tests/ export-ignore
 typings/ export-ignore
+vendor/ export-ignore
 *.py export-ignore
 *.mpy binary -diff

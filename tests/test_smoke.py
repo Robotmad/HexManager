@@ -19,8 +19,8 @@ def test_import_hexmanager_app_and_app_export():
     assert HexManager.__app_export__ == HexManagerApp
 
 def test_import_hexdrive_app_and_app_export():
-    import sim.apps.HexManager.EEPROM.hexdrive as HexDrive
-    from sim.apps.HexManager.EEPROM.hexdrive import HexDriveApp
+    import sim.apps.HexManager.vendor.HexDrive.hexdrive as HexDrive
+    from sim.apps.HexManager.vendor.HexDrive.hexdrive import HexDriveApp
     assert HexDrive.__app_export__ == HexDriveApp
 
 def test_hexmanager_app_init():
@@ -146,7 +146,7 @@ def test_long_startup_warning_uses_pages_and_navigation(monkeypatch):
     assert app._message_page_index == 0
 
 def test_hexdrive_app_init(port):
-    from sim.apps.HexManager.EEPROM.hexdrive import HexDriveApp
+    from sim.apps.HexManager.vendor.HexDrive.hexdrive import HexDriveApp
     config = HexpansionConfig(port)
     HexDriveApp(config)
 
@@ -158,7 +158,7 @@ def test_app_versions_match():
     without updating hexpansions.json (or vice-versa) this test will catch it.
     """
     import os
-    from sim.apps.HexManager.EEPROM.hexdrive import HexDriveApp
+    from sim.apps.HexManager.vendor.HexDrive.hexdrive import HexDriveApp
 
     def extract_version(path: Path) -> int:
         content = path.read_text(encoding="utf-8")
@@ -215,7 +215,7 @@ def test_hexdrive_type_pids_consistent():
     the motor/servo capability counts must agree.
     """
     from sim.apps.HexManager import HexManagerApp
-    from sim.apps.HexManager.EEPROM.hexdrive import _HEXDRIVE_TYPES
+    from sim.apps.HexManager.vendor.HexDrive.hexdrive import _HEXDRIVE_TYPES
 
     app_instance = HexManagerApp()
     hexdrive_hexpansion_types = [

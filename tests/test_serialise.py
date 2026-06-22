@@ -299,6 +299,7 @@ def test_prepare_eeprom_uses_detected_geometry_for_header(hexmanager_app, monkey
     helper._hexpansion_eeprom_addr[0] = 0x50
     captured = {}
 
+    monkeypatch.setattr(hexpansion_module, 'HexpansionHeader', lambda **kwargs: SimpleNamespace(**kwargs))
     monkeypatch.setattr(hexpansion_module, 'I2C', lambda port: object())
     monkeypatch.setattr(helper, '_detect_eeprom_geometry', lambda port, force=False: (32768, 64))
     monkeypatch.setattr(hexpansion_module, 'write_header', lambda port, header, addr=None, addr_len=None, page_size=None: captured.update({'header': header, 'addr': addr, 'addr_len': addr_len, 'page_size': page_size}))
@@ -327,6 +328,7 @@ def test_prepare_eeprom_uses_header_friendly_name_override(hexmanager_app, monke
     helper._app.HEXPANSION_TYPES[0].friendly_name = 'HexCurent'
     captured = {}
 
+    monkeypatch.setattr(hexpansion_module, 'HexpansionHeader', lambda **kwargs: SimpleNamespace(**kwargs))
     monkeypatch.setattr(hexpansion_module, 'I2C', lambda port: object())
     monkeypatch.setattr(helper, '_detect_eeprom_geometry', lambda port, force=False: (32768, 64))
     monkeypatch.setattr(hexpansion_module, 'write_header', lambda port, header, addr=None, addr_len=None, page_size=None: captured.update({'header': header, 'addr': addr, 'addr_len': addr_len, 'page_size': page_size}))
@@ -371,13 +373,14 @@ def test_port_detail_prefers_known_type_name_over_header_friendly_name(hexmanage
 def test_blank_port_scan_button_and_geometry_details(hexmanager_app, monkeypatch):
     from events.input import BUTTON_TYPES
     from sim.apps.HexManager import hexpansion_mgr as hexpansion_module
-    from sim.apps.HexManager.hexpansion_mgr import _SUB_PORT_SELECT, _SUB_SCANNING
+    from sim.apps.HexManager.hexpansion_mgr import _MODE_INTERACTIVE, _SUB_PORT_SELECT, _SUB_SCANNING
 
     app = hexmanager_app
     helper = app._hexpansion_mgr
     app.button_states = FakeButtons(BUTTON_TYPES)
     helper._sub_state = _SUB_PORT_SELECT
     helper._port_selected = 1
+    helper._mode = _MODE_INTERACTIVE
     helper._hexpansion_state_by_slot[0] = helper.HEXPANSION_STATE_BLANK
     helper._update_detail_page_count()
 
@@ -451,7 +454,7 @@ def test_right_button_keeps_slot_navigation_when_blank_port_can_scan(hexmanager_
 
 def test_declined_initialise_is_not_reprompted_during_init_rescan(hexmanager_app, monkeypatch):
     from events.input import BUTTON_TYPES
-    from sim.apps.HexManager.hexpansion_mgr import _MODE_INIT, _SUB_DETECTED, _SUB_PORT_SELECT
+    from sim.apps.HexManager.hexpansion_mgr import _MODE_INIT, _MODE_INTERACTIVE, _SUB_DETECTED, _SUB_PORT_SELECT
 
     app = hexmanager_app
     helper = app._hexpansion_mgr
@@ -476,7 +479,7 @@ def test_declined_initialise_is_not_reprompted_during_init_rescan(hexmanager_app
 
     assert 3 not in helper._ports_to_initialise
 
-    helper._mode = 3
+    helper._mode = _MODE_INTERACTIVE
     helper._sub_state = _SUB_PORT_SELECT
     helper._port_selected = 3
     app.button_states.press('CONFIRM')
