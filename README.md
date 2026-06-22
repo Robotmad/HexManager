@@ -168,7 +168,7 @@ Hexpansion apps stored on EEPROM are minified before being compiled to `.mpy` to
 |--------|----------|
 | `vendor/HexCurrent/hexcurrent.py` | `EEPROM/hexcurrent.mpy` |
 | `vendor/HexDrive2/hexdrive2.py` | `EEPROM/hexdrive2.mpy` |
-| `EEPROM/gps.py` | `EEPROM/gps.mpy` |
+| `vendor/HexGPS/gps.py` | `EEPROM/gps.mpy` |
 | `EEPROM/caffeine.py` | `EEPROM/caffeine.mpy` |
 
 The pipeline uses `dev/minify.py` which:
@@ -187,7 +187,7 @@ python dev/minify.py
 
 Or to minify a single file (as `download_to_device.py` does):
 ```
-python dev/minify.py --source EEPROM/gps.py --artifact EEPROM/gps.mpy
+python dev/minify.py --source vendor/HexGPS/gps.py --artifact EEPROM/gps.mpy
 ```
 
 `python-minifier` is listed in `dev/dev_requirements.txt` and is installed as part of the standard dev-environment setup.

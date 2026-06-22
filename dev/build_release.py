@@ -15,8 +15,6 @@ class ModuleSpec:
 
 RUNTIME_MODULES = {
     "app",
-    "EEPROM/hexdrive",
-    "EEPROM/gps",
     "EEPROM/caffeine",
     "settings_mgr",
     "serialise_mgr",
@@ -24,8 +22,11 @@ RUNTIME_MODULES = {
 }
 
 EXTERNAL_MODULES = (
+    ModuleSpec(Path("vendor/HexDrive/hexdrive.py"), Path("EEPROM/hexdrive.mpy")),
     ModuleSpec(Path("vendor/HexDrive2/hexdrive2.py"), Path("EEPROM/hexdrive2.mpy")),
     ModuleSpec(Path("vendor/HexCurrent/hexcurrent.py"), Path("EEPROM/hexcurrent.mpy")),
+    ModuleSpec(Path("vendor/HexGPS/gps.py"), Path("EEPROM/gps.mpy")),
+    ModuleSpec(Path("vendor/HexTest/hextest.py"), Path("EEPROM/hextest.mpy")),
 )
 
 files_to_mpy = {Path(f"{module}.py") for module in RUNTIME_MODULES}
@@ -39,7 +40,13 @@ files_to_keep = {
 files_to_keep.update({Path(f"{module}.mpy") for module in RUNTIME_MODULES})
 files_to_keep.update({spec.artifact for spec in EXTERNAL_MODULES})
 
-IGNORED_SOURCE_DIRS = (Path("vendor/HexDrive2"), Path("vendor/HexCurrent"))
+IGNORED_SOURCE_DIRS = (
+    Path("vendor/HexDrive"),
+    Path("vendor/HexDrive2"),
+    Path("vendor/HexGPS"),
+    Path("vendor/HexCurrent"),
+    Path("vendor/HexTest"),
+)
 
 def _construct_filepaths(dirname, filenames):
     return [Path(dirname, filename) for filename in filenames]

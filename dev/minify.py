@@ -112,7 +112,7 @@ MINIFIABLE: tuple[MinifySpec, ...] = (
         _PRESERVE_HEXDRIVE2,
     ),
     MinifySpec(
-        ROOT / "EEPROM" / "gps.py",
+        ROOT / "vendor" / "HexGPS" / "gps.py",
         ROOT / "EEPROM" / "gps.mpy",
         _PRESERVE_GPS,
     ),

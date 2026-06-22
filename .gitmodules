@@ -1,6 +1,18 @@
 [submodule "vendor/HexDrive2"]
 	path = vendor/HexDrive2
 	url = https://github.com/TeamRobotmad/HexDrive2.git
+[submodule "vendor/HexDrive"]
+	path = vendor/HexDrive
+	url = https://github.com/TeamRobotmad/HexDrive.git
+	branch = main
+[submodule "vendor/HexGPS"]
+	path = vendor/HexGPS
+	url = https://github.com/TeamRobotmad/HexGPS.git
+	branch = main
 [submodule "vendor/HexCurrent"]
 	path = vendor/HexCurrent
 	url = https://github.com/TeamRobotmad/HexCurrent.git
+[submodule "vendor/HexTest"]
+	path = vendor/HexTest
+	url = https://github.com/TeamRobotmad/HexTest.git
+	branch = main
