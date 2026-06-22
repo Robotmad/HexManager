@@ -46,7 +46,7 @@ MODULES: tuple[ModuleSpec, ...] = (
     ModuleSpec(Path("vendor/HexDrive/hexdrive.py"), Path("EEPROM/hexdrive.mpy"), minify=False),
     ModuleSpec(Path("vendor/HexDrive2/hexdrive2.py"), Path("EEPROM/hexdrive2.mpy"), minify=False),
     ModuleSpec(Path("vendor/HexCurrent/hexcurrent.py"), Path("EEPROM/hexcurrent.mpy"), minify=False),
-    ModuleSpec(Path("vendor/HexGPS/gps.py"), Path("EEPROM/gps.mpy"), minify=False),
+    ModuleSpec(Path("vendor/HexGPS/hexgps.py"), Path("EEPROM/hexgps.mpy"), minify=False),
     ModuleSpec(Path("vendor/HexTest/hextest.py"), Path("EEPROM/hextest.mpy"), minify=False),
     ModuleSpec(Path("EEPROM/caffeine.py"), Path("EEPROM/caffeine.mpy"), minify=False),
 )

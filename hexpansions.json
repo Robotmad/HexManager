@@ -25,22 +25,22 @@
     {
       "pid": "0xCBCB", "vid": "0xCAFE", "name": "HexDrive", "sub_type": "Uncommitted",
       "eeprom_total_size": 8192, "eeprom_page_size": 32,
-      "app_mpy_name": "hexdrive", "app_mpy_version": 7, "app_name": "HexDriveApp"
+      "app_mpy_name": "hexdrive", "app_mpy_version": 6, "app_name": "HexDriveApp"
     },
     {
       "pid": "0xCBCA", "vid": "0xCAFE", "name": "HexDrive", "sub_type": "2 Motor",
       "eeprom_total_size": 8192, "eeprom_page_size": 32,
-      "app_mpy_name": "hexdrive", "app_mpy_version": 7, "app_name": "HexDriveApp"
+      "app_mpy_name": "hexdrive", "app_mpy_version": 6, "app_name": "HexDriveApp"
     },
     {
       "pid": "0xCBCC", "vid": "0xCAFE", "name": "HexDrive", "sub_type": "4 Servo",
       "eeprom_total_size": 8192, "eeprom_page_size": 32,
-      "app_mpy_name": "hexdrive", "app_mpy_version": 7, "app_name": "HexDriveApp"
+      "app_mpy_name": "hexdrive", "app_mpy_version": 6, "app_name": "HexDriveApp"
     },
     {
       "pid": "0xCBCD", "vid": "0xCAFE", "name": "HexDrive", "sub_type": "1 Mot 2 Srvo",
       "eeprom_total_size": 8192, "eeprom_page_size": 32,
-      "app_mpy_name": "hexdrive", "app_mpy_version": 7, "app_name": "HexDriveApp"
+      "app_mpy_name": "hexdrive", "app_mpy_version": 6, "app_name": "HexDriveApp"
     },
     {
       "pid": "0x2000", "vid": "0xCBCB", "name": "HexSense",
@@ -106,9 +106,9 @@
     },
     {
       "_comment": "HexGPS - GPS module bolted onto a hexdrive PCB.",
-      "pid": "0xbeac", "vid": "0xCBCB", "name": "HexGPS", "sub_type": "L80K",
-      "eeprom_total_size": 8192, "eeprom_page_size": 32
-      "app_mpy_name": "gps", "app_mpy_version": 3, "app_name": "GPSApp"
+      "pid": "0xbeac", "vid": "0xCBCB", "name": "HexGPS", "sub_type": "ublox",
+      "eeprom_total_size": 8192, "eeprom_page_size": 32,
+      "app_mpy_name": "hexgps", "app_mpy_version": 3, "app_name": "GPSApp"
     },
     {
       "_comment": "The Machine Shops/Tech Cabin - GPS hexpansion - small 2048-byte EEPROM.",
