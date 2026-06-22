@@ -79,7 +79,8 @@
     },
     {
       "pid": "0x2000", "vid": "0xCBCB", "name": "HexAudio", "sub_type": "Output Only",
-      "eeprom_total_size": 8192, "eeprom_page_size": 32
+      "eeprom_total_size": 8192, "eeprom_page_size": 32,
+      "app_mpy_name": "hexaudio", "app_mpy_version": 1, "app_name": "HexAudioApp"
     },
     {
       "pid": "0x3000", "vid": "0xCBCB", "name": "HexTest",
@@ -104,12 +105,19 @@
       "eeprom_total_size": 8192, "eeprom_page_size": 32
     },
     {
+      "_comment": "HexGPS - GPS module bolted onto a hexdrive PCB.",
+      "pid": "0xbeac", "vid": "0xCBCB", "name": "HexGPS", "sub_type": "L80K",
+      "eeprom_total_size": 8192, "eeprom_page_size": 32
+      "app_mpy_name": "gps", "app_mpy_version": 3, "app_name": "GPSApp"
+    },
+    {
+      "_comment": "The Machine Shops/Tech Cabin - GPS hexpansion - small 2048-byte EEPROM.",
       "pid": "0xbeac", "vid": "0x7cab", "name": "GPS", "sub_type": "L80K",
       "eeprom_total_size": 2048, "eeprom_page_size": 16,
       "app_mpy_name": "gps", "app_mpy_version": 3, "app_name": "GPSApp"
     },
     {
-      "_comment": "Flopagon - small 2048-byte EEPROM. EEPROM too small for the app.",
+      "_comment": "Flopagon - small 2048-byte EEPROM.",
       "pid": "0xD15C", "vid": "0xCAFE", "name": "Flopagon",
       "eeprom_total_size": 2048, "eeprom_page_size": 16
     },
