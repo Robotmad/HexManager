@@ -208,6 +208,11 @@ def _load_hexpansion_types(app_file_path, json_path=None):
             # _parse_int helper handles both plain integers and quoted hex strings
             # (e.g. "0xCAFE") – JSON has no hex literal syntax so users must
             # quote hex values as strings.
+
+            # app_mpy_version is documented (and tested elsewhere) as supporting integer or string versions, but the loader
+            # coerces any non-null value to int(...). This will raise for semantic versions like \"1.2.3\" and prevents string
+            # comparison logic from ever being reached. Preserve the original type (int stays int, str stays str), or only
+            # cast when the JSON value is numeric.
             types_list.append(HexpansionType(
                 pid=h["pid"],
                 name=str(h["name"]),

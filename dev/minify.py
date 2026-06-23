@@ -24,6 +24,9 @@ from pathlib import Path
 
 HERE = Path(__file__).parent
 ROOT = HERE.parent  # sim/apps/HexManager/
+#TODO MPY_CROSS is hard-coded to a Windows venv layout and a specific archived version (v1.20.0/mpy-cross.exe).
+#This will break on Linux/macOS, on different venv layouts, and when mpy-cross is upgraded. Prefer resolving
+# mpy-cross from PATH (or using the mpy_cross Python package API consistently), with a clear error message if it isn't available.
 MPY_CROSS = (
     ROOT / ".venv" / "Lib" / "site-packages" / "mpy_cross" / "archive" / "v1.20.0" / "mpy-cross.exe"
 )
@@ -112,8 +115,8 @@ MINIFIABLE: tuple[MinifySpec, ...] = (
         _PRESERVE_HEXDRIVE2,
     ),
     MinifySpec(
-        ROOT / "vendor" / "HexGPS" / "gps.py",
-        ROOT / "EEPROM" / "gps.mpy",
+        ROOT / "vendor" / "HexGPS" / "hexgps.py",
+        ROOT / "EEPROM" / "hexgps.mpy",
         _PRESERVE_GPS,
     ),
     MinifySpec(

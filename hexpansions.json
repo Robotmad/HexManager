@@ -78,7 +78,7 @@
       "app_mpy_name": "hexdrive2", "app_mpy_version": 1, "app_name": "HexDriveApp"
     },
     {
-      "pid": "0x2000", "vid": "0xCBCB", "name": "HexAudio", "sub_type": "Output Only",
+      "pid": "0x5000", "vid": "0xCBCB", "name": "HexAudio", "sub_type": "Output Only",
       "eeprom_total_size": 8192, "eeprom_page_size": 32,
       "app_mpy_name": "hexaudio", "app_mpy_version": 1, "app_name": "HexAudioApp"
     },
@@ -88,7 +88,7 @@
       "app_mpy_name": "hextest", "app_mpy_version": 1, "app_name": "HexTestApp"
     },
     {
-      "pid": "0x5000", "vid": "0xCBCB", "name": "HexCurrent", "friendly_name": "HexCurent",
+      "pid": "0x7000", "vid": "0xCBCB", "name": "HexCurrent", "friendly_name": "HexCurent",
       "eeprom_total_size": 65536, "eeprom_page_size": 128,
       "app_mpy_name": "hexcurrent", "app_mpy_version": 1, "app_name": "HexCurrentApp"
     },
@@ -106,7 +106,7 @@
     },
     {
       "_comment": "HexGPS - GPS module bolted onto a hexdrive PCB.",
-      "pid": "0xbeac", "vid": "0xCBCB", "name": "HexGPS", "sub_type": "ublox",
+      "pid": "0xbeac", "vid": "0x7cab", "name": "HexGPS", "sub_type": "ublox",
       "eeprom_total_size": 8192, "eeprom_page_size": 32,
       "app_mpy_name": "hexgps", "app_mpy_version": 3, "app_name": "GPSApp"
     },

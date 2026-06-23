@@ -164,6 +164,9 @@ def test_app_versions_match():
         content = path.read_text(encoding="utf-8")
         match = re.search(r"^\s*VERSION\s*=\s*(\d+)", content, re.MULTILINE)
         assert match is not None, f"Could not find VERSION in {path}"
+        # This only matches integer VERSION = <digits> assignments. If a vendored app switches to a string version (e.g. VERSION = \"1.2.3\")
+        #  or uses an expression, the test will fail even though the version is valid per your newer comparison logic. Consider parsing via ast
+        # to safely evaluate simple constants, or extending the regex to accept quoted strings as well.
         return int(match.group(1))
 
     json_path = os.path.join(os.path.dirname(__file__), "..", "hexpansions.json")
