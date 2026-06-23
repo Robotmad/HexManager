@@ -225,7 +225,9 @@ class HexpansionMgr:
     @staticmethod
     def _mem_target(addr: int, addr_len: int, mem_addr: int) -> tuple[int, int]:
         mem_addr_mask = (1 << (addr_len * 8)) - 1
-        return addr | (mem_addr >> (8 * addr_len)), mem_addr & mem_addr_mask
+        if addr_len == 1:
+            return addr | (mem_addr >> 8), mem_addr & mem_addr_mask
+        return addr, mem_addr & mem_addr_mask
 
     @classmethod
     def _write_eeprom_bytes(cls, i2c, addr: int, addr_len: int, mem_addr: int, data: bytes):
