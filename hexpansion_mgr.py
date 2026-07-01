@@ -53,6 +53,7 @@ _SUB_EXIT            = 10          # State for exiting from interactive mode bac
 # EEPROM app programming outcomes
 _APP_EEPROM_RESULT_FAILURE = 0
 _APP_EEPROM_RESULT_MISSING = -1
+_APP_EEPROM_RESULT_FILE_TOO_BIG_FAILURE = -2
 _APP_EEPROM_RESULT_SUCCESSFUL_UPGRADE = 1
 _APP_EEPROM_RESULT_SUCCESSFUL_WRITE = 2
 
@@ -653,19 +654,24 @@ class HexpansionMgr:
 
             if app.HEXPANSION_TYPES[self._hexpansion_init_type].app_mpy_name is None:
                 #app.notification = Notification("No App", port=self._upgrade_port)
-                #app.show_message(["No App", "for this", "Hexpansion"], [(1,0,0),(1,0,0),(1,0,0)], "hexpansion")
+                #app.show_message(["No App", "for this", "Hexpansion"], [(1,0,0), (1,0,0), (1,0,0)], "hexpansion")
                 #self._message_being_shown = True
                 self._sub_state = _SUB_CHECK
             else:
                 result = self._update_app_in_eeprom(self._upgrade_port)
                 if result == _APP_EEPROM_RESULT_FAILURE:
                     app.notification = Notification("Failed", port=self._upgrade_port)
-                    app.show_message(["Hexpansion", "programming", "failed", "Protected?"], [(1,0,0),(1,0,0),(1,0,0),(1,0,0)], "warning")
+                    app.show_message(["Hexpansion", "programming", "failed", "Protected?"], [(1,0,0), (1,0,0), (1,0,0), (1,0,0)], "warning")
                     self._message_being_shown = True
                     self._sub_state = _SUB_CHECK
                 elif result == _APP_EEPROM_RESULT_MISSING:
                     app.notification = Notification("App Missing", port=self._upgrade_port)
-                    app.show_message(["App file", "missing for", "this Hexpansion"], [(1,0,0),(1,0,0),(1,0,0)], "warning")
+                    app.show_message(["App file", "missing for", "this Hexpansion"], [(1,0,0), (1,0,0), (1,0,0)], "warning")
+                    self._message_being_shown = True
+                    self._sub_state = _SUB_CHECK
+                elif result == _APP_EEPROM_RESULT_FILE_TOO_BIG_FAILURE:
+                    app.notification = Notification("App Too Large", port=self._upgrade_port)
+                    app.show_message(["App file", "too large for", "Hexpansion", "EEPROM"], [(1,0,0), (1,0,0), (1,0,0), (1,0,0)], "warning")
                     self._message_being_shown = True
                     self._sub_state = _SUB_CHECK
                 else:
@@ -675,7 +681,7 @@ class HexpansionMgr:
                     #app.notification = Notification(upgrade_text, port=self._upgrade_port)
                     # No point showing "Programmed" vs "Upgraded" as the Hexpansion Insertion Notification will cover it up
                     #eventbus.emit(HexpansionInsertionEvent(self._upgrade_port))
-                    #app.show_message([f"{upgrade_text}:", "Please", "reboop"], [(0,1,0),(1,1,1),(1,1,1)], "reboop")
+                    #app.show_message([f"{upgrade_text}:", "Please", "reboop"], [(0,1,0), (1,1,1), (1,1,1)], "reboop")
                     self._reboop_required = True
                     self._sub_state = _SUB_CHECK
             self._upgrade_port = None
@@ -685,13 +691,13 @@ class HexpansionMgr:
                 self._hexpansion_type_by_slot[self._detected_port - 1] = self._hexpansion_init_type
                 if app.HEXPANSION_TYPES[self._hexpansion_init_type].app_mpy_name is not None:
                     app.notification = Notification("Initialised", port=self._detected_port)
-                    # Only worth showing "Initialised" Notification is we are NOT going to trigger Hexpansion Insertion Notification
+                    # Only worth showing "Initialised" Notification if we are NOT going to trigger Hexpansion Insertion Notification
                     self._upgrade_port = self._detected_port
                     self._sub_state = _SUB_PROGRAMMING
                     self._hexpansion_state_by_slot[self._detected_port - 1] = self.HEXPANSION_STATE_RECOGNISED
                 else:
                     eventbus.emit(HexpansionInsertionEvent(self._detected_port))
-                    #app.show_message(["No App", "for this", "Hexpansion"], [(1,1,0),(1,1,1),(1,1,1)], "hexpansion")
+                    #app.show_message(["No App", "for this", "Hexpansion"], [(1,1,0), (1,1,1), (1,1,1)], "hexpansion")
                     #self._message_being_shown = True
                     self._sub_state = _SUB_CHECK
                     self._hexpansion_state_by_slot[self._detected_port - 1] = self.HEXPANSION_STATE_RECOGNISED_NO_APP
@@ -699,7 +705,7 @@ class HexpansionMgr:
                 app.notification = Notification("Failed", port=self._detected_port)
                 self._hexpansion_type_by_slot[self._detected_port - 1] = None
                 self._hexpansion_state_by_slot[self._detected_port - 1] = self.HEXPANSION_STATE_FAULTY
-                app.show_message(["EEPROM", "initialisation", "failed", "Protected?"], [(1,0,0),(1,0,0),(1,0,0),(1,0,0)], "warning")
+                app.show_message(["EEPROM", "initialisation", "failed", "Protected?"], [(1,0,0), (1,0,0), (1,0,0), (1,0,0)], "warning")
                 self._message_being_shown = True
                 self._sub_state = _SUB_CHECK
             self._detected_port = None
@@ -800,7 +806,7 @@ class HexpansionMgr:
             self._detected_port = erase_port
         else:
             app.notification = Notification("Failed", port=erase_port)
-            app.show_message(["EEPROM", "erasure", "failed", "Protected?"], [(1,0,0),(1,0,0),(1,0,0),(1,0,0)], "warning")
+            app.show_message(["EEPROM", "erasure", "failed", "Protected?"], [(1,0,0), (1,0,0), (1,0,0), (1,0,0)], "warning")
             self._message_being_shown = True
             self._sub_state = _SUB_PORT_SELECT if self._mode == _MODE_INTERACTIVE else _SUB_CHECK
 
@@ -869,7 +875,7 @@ class HexpansionMgr:
 
             # Check Complete - decide next state
             if self._reboop_required:
-                app.show_message(["Please", "reboop"], [(1,1,1),(1,1,1)], "reboop")
+                app.show_message(["Please", "reboop"], [(1,1,1), (1,1,1)], "reboop")
                 return # so that you can't get out of this without a reboop
             if self._message_being_shown or self._mode == _MODE_INTERACTIVE:
                 # we will be called again when the message is dismissed
@@ -905,6 +911,7 @@ class HexpansionMgr:
                 upgrade_type = self._hexpansion_type_by_slot[self._upgrade_port - 1]
                 if upgrade_type is not None:
                     self._hexpansion_init_type = upgrade_type
+                    print(f"H:Upgrade? on port {self._upgrade_port} for type {self._hexpansion_init_type}")
                 app.notification = Notification("Upgrade?", port=self._upgrade_port)
                 self._sub_state = _SUB_UPGRADE_CONFIRM
             elif self._hexpansion_state_by_slot[self._port_selected - 1] >= self.HEXPANSION_STATE_FAULTY:
@@ -1203,18 +1210,34 @@ class HexpansionMgr:
             self._hexpansion_state_by_slot[port - 1] = self.HEXPANSION_STATE_EMPTY
             return False
         self._ports_initialise_declined.discard(port)
+        candidate_index = None
         for index, hexpansion_type in enumerate(app.HEXPANSION_TYPES):
+            # cope with there being multiple entries for the same VID/PID but with different friendly_names
             if hexpansion_header.vid == hexpansion_type.vid and hexpansion_header.pid == hexpansion_type.pid:
-                self._hexpansion_type_by_slot[port - 1] = index
                 if self._hexpansion_state_by_slot[port - 1] < self.HEXPANSION_STATE_RECOGNISED:
                     self._hexpansion_state_by_slot[port - 1] = self.HEXPANSION_STATE_RECOGNISED
-                if self._logging:
-                    print(f"H:Found {hexpansion_type.name} {hexpansion_type.sub_type if hexpansion_type.sub_type else ''} on port {port}")
-                if hexpansion_type.app_name is not None:
-                    # This hexpansion should have an app, but do we have it and is it the right version?
-                    self._check_hexpansion_app_on_port(port, index)
-                    return True
-                return False
+                if hexpansion_header.friendly_name == hexpansion_type.friendly_name:
+                    self._hexpansion_type_by_slot[port - 1] = index
+                    if self._logging:
+                        print(f"H:Found {hexpansion_type.name} {hexpansion_type.sub_type if hexpansion_type.sub_type else ''} on port {port}")
+                    if hexpansion_type.app_name is not None:
+                        # This hexpansion should have an app, but do we have it and is it the right version?
+                        self._check_hexpansion_app_on_port(port, index)
+                        return True
+                    return False
+                else:
+                    # vid and pid match but not the friendly name - remember this index in case we don't find an exact match
+                    candidate_index = index
+        if candidate_index is not None:
+            # Although we didn't have an exact match we did match vid and pid
+            self._hexpansion_type_by_slot[port - 1] = candidate_index
+            if self._logging:
+                print(f"H:Found {app.HEXPANSION_TYPES[candidate_index].name} {app.HEXPANSION_TYPES[candidate_index].sub_type if app.HEXPANSION_TYPES[candidate_index].sub_type else ''} on port {port}")
+            if app.HEXPANSION_TYPES[candidate_index].app_name is not None:
+                # This hexpansion should have an app, but do we have it and is it the right version?
+                self._check_hexpansion_app_on_port(port, index)
+                return True
+            return False
         # Unrecognised Hexpansion
         if self._logging:
             # report VID/PID in hexadecimal
@@ -1260,6 +1283,7 @@ class HexpansionMgr:
         Returns one of:
           - _APP_EEPROM_RESULT_FAILURE
           - _APP_EEPROM_RESULT_MISSING
+          - _APP_EEPROM_RESULT_FILE_TOO_BIG_FAILURE
           - _APP_EEPROM_RESULT_SUCCESSFUL_UPGRADE
           - _APP_EEPROM_RESULT_SUCCESSFUL_WRITE
         """
@@ -1346,7 +1370,7 @@ class HexpansionMgr:
         if app_mpy_size > max_payload:
             print(
                 f"H:app.mpy for {app.HEXPANSION_TYPES[selected_type].name} on port {port} needs {app_mpy_size}bytes: largest writable file is {max_payload}bytes")
-            return _APP_EEPROM_RESULT_FAILURE
+            return _APP_EEPROM_RESULT_FILE_TOO_BIG_FAILURE
 
         if self._logging:
             print(f"H:Copying {source_path} ({app_mpy_size} bytes) to {dest_path}")
@@ -1558,8 +1582,9 @@ class HexpansionMgr:
                     self._sub_state = _SUB_CHECK
                 elif self._hexpansion_state_by_slot[port - 1] == self.HEXPANSION_STATE_RECOGNISED_OLD_APP:
                     if self._logging:
-                        print(f"H:Hexpansion [{port}] upgrade to {app.HEXPANSION_TYPES[type_index].app_mpy_version}?")
+                        print(f"H:Hexpansion [{port}] upgrade to V{app.HEXPANSION_TYPES[type_index].app_mpy_version}?")
                     self._upgrade_port = port
+                    self._hexpansion_init_type = type_index
                     self._sub_state = _SUB_UPGRADE_CONFIRM
             elif 5000 < self._hexpansion_app_startup_timer:
                 if self._logging:
